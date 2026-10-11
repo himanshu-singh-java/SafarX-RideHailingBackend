@@ -76,10 +76,19 @@ public class Riders {
         this.createdAt = createdAt;
     }
 
+    public Users getUsers() {
+        return users;
+    }
+
+    public void setUsers(Users users) {
+        this.users = users;
+    }
+
     @Override
     public String toString() {
         return "Riders{" +
                 "riderID=" + riderID +
+                ", users=" + users +
                 ", riderName='" + riderName + '\'' +
                 ", phoneNum='" + phoneNum + '\'' +
                 ", riderRating=" + riderRating +

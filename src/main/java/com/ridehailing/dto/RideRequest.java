@@ -1,4 +1,4 @@
-package com.ridehailing.model;
+package com.ridehailing.dto;
 
 public class RideRequest {
 

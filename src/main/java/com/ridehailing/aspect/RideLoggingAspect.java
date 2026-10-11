@@ -13,7 +13,7 @@ public class RideLoggingAspect {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RideLoggingAspect.class);
 
-    @Around("execution(* service.RideEngine.*(..))")
+    @Around("execution(* com.ridehailing.service.RideEngine.*(..))")
     public Object trackExecutionTime(ProceedingJoinPoint jp) throws Throwable {
 
         long startTime = System.currentTimeMillis();
@@ -29,7 +29,7 @@ public class RideLoggingAspect {
         return result;
     }
 
-    @Before("execution(* controller.*.*(..))")
+    @Before("execution(* com.ridehailing.controller.*.*(..))")
     public void logApiRequests(org.aspectj.lang.JoinPoint jp){
         LOGGER.info("AOP Log: API Request Received - Method: {}()", jp.getSignature().getName());
     }

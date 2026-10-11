@@ -1,5 +1,6 @@
 package com.ridehailing.service;
 
+import com.ridehailing.dto.RideRequest;
 import com.ridehailing.mapper.RideMapper;
 import com.ridehailing.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,9 +66,13 @@ public class RideEngine {
 
         Double estimatedFare = availableVehicle.calculateFare(estimatedDistance);
 
-        availableVehicle.setVehicleStatus(VehicleStatus.ON_RIDE);
-        availableVehicle.setCurrentLat(request.getDropLat());
-        availableVehicle.setCurrentLng(request.getDropLng());
+        Driver driver = availableVehicle.getDriver();
+        if(driver != null){
+            driver.setDriverStatus(VehicleStatus.ON_RIDE);
+            driver.setCurrentLat(request.getDropLat());
+            driver.setCurrentLng(request.getDropLng());
+        }
+
         vehicleRepository.save(availableVehicle);
 
         Rides newRide = RideMapper.mapToEntity(request);
@@ -93,8 +98,8 @@ public class RideEngine {
         ride.setRideStatus(RideStatus.COMPLETED);
 
         Vehicles vehicles = ride.getVehicle();
-        if (vehicles != null) {
-            vehicles.setVehicleStatus(VehicleStatus.AVAILABLE);
+        if (vehicles != null && vehicles.getDriver() != null) {
+            vehicles.getDriver().setDriverStatus(VehicleStatus.AVAILABLE);
             vehicleRepository.save(vehicles);
         }
 
@@ -118,8 +123,11 @@ public class RideEngine {
 
         if(rides.getRideStatus() == RideStatus.ACCEPTED){
             Vehicles vehicles = rides.getVehicle();
-            vehicles.setVehicleStatus(VehicleStatus.AVAILABLE);
-            vehicleRepository.save(vehicles);
+
+            if(vehicles != null && vehicles.getDriver() != null){
+                vehicles.getDriver().setDriverStatus(VehicleStatus.AVAILABLE);
+                vehicleRepository.save(vehicles);
+            }
         }
 
         rideRepository.deleteById(rideId);
@@ -135,10 +143,10 @@ public class RideEngine {
                 .orElseThrow(() -> new RuntimeException("No Active Ride found for Vehicle Id :" + vehicleId));
 
         activeRide.setRideStatus(RideStatus.COMPLETED);
-        Vehicles vehicles = activeRide.getVehicle();
 
-        if(vehicles != null){
-            vehicles.setVehicleStatus(VehicleStatus.AVAILABLE);
+        Vehicles vehicles = activeRide.getVehicle();
+        if(vehicles != null && vehicles.getDriver() != null){
+            vehicles.getDriver().setDriverStatus(VehicleStatus.AVAILABLE);
             vehicleRepository.save(vehicles);
         }
         return rideRepository.save(activeRide);

@@ -1,11 +1,11 @@
 package com.ridehailing.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "vehicles")
-@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
-@DiscriminatorColumn(name = "vehicle_type", discriminatorType = DiscriminatorType.STRING)
+@Inheritance(strategy = InheritanceType.JOINED)
 public abstract class Vehicles {
 
     @Id
@@ -13,25 +13,18 @@ public abstract class Vehicles {
     @Column(name = "vehicle_id")
     private int vehicleId;
 
-    @Column(name = "driver_name")
-    private String driverName;
+    @Column(name = "plate_number", nullable = false)
+    private String plateNumber;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private VehicleStatus vehicleStatus;
+    @JsonIgnore
+    @OneToOne(mappedBy = "vehicle", cascade = CascadeType.ALL)
+    private Driver driver;
 
-    @Column(name = "rating")
-    private double rating;
-
-    @Column(name = "current_latitude")
-    private Double currentLat;
-
-    @Column(name = "current_longitude")
-    private Double currentLng;
-
-    Vehicles(){
+    public Vehicles(){
 
     }
+
+    public abstract double calculateFare(double distanceKm);
 
     public int getVehicleId() {
         return vehicleId;
@@ -41,57 +34,19 @@ public abstract class Vehicles {
         this.vehicleId = vehicleId;
     }
 
-    public String getDriverName() {
-        return driverName;
+    public String getPlateNumber() {
+        return plateNumber;
     }
 
-    public void setDriverName(String driverName) {
-        this.driverName = driverName;
+    public void setPlateNumber(String plateNumber) {
+        this.plateNumber = plateNumber;
     }
 
-    public VehicleStatus getVehicleStatus() {
-        return vehicleStatus;
+    public Driver getDriver() {
+        return driver;
     }
 
-    public void setVehicleStatus(VehicleStatus vehicleStatus) {
-        this.vehicleStatus = vehicleStatus;
-    }
-
-    public double getRating() {
-        return rating;
-    }
-
-    public void setRating(double rating) {
-        this.rating = rating;
-    }
-
-    public Double getCurrentLat() {
-        return currentLat;
-    }
-
-    public void setCurrentLat(Double currentLat) {
-        this.currentLat = currentLat;
-    }
-
-    public Double getCurrentLng() {
-        return currentLng;
-    }
-
-    public void setCurrentLng(Double currentLng) {
-        this.currentLng = currentLng;
-    }
-
-    public abstract double calculateFare(double distanceKm);
-
-    @Override
-    public String toString() {
-        return "Vehicles{" +
-                "vehicleId=" + vehicleId +
-                ", driverName='" + driverName + '\'' +
-                ", vehicleStatus=" + vehicleStatus +
-                ", rating=" + rating +
-                ", currentLat=" + currentLat +
-                ", currentLng=" + currentLng +
-                '}';
+    public void setDriver(Driver driver) {
+        this.driver = driver;
     }
 }

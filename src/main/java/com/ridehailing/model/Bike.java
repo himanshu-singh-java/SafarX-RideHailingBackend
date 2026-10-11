@@ -2,11 +2,11 @@ package com.ridehailing.model;
 
 
 import jakarta.persistence.Column;
-import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 
 @Entity
-@DiscriminatorValue("BIKE")
+@Table(name = "bikes")
 public class Bike extends Vehicles {
 
     @Column(name = "bike_model")

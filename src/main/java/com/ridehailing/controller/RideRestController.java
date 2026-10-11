@@ -1,7 +1,7 @@
 package com.ridehailing.controller;
 import com.ridehailing.mapper.RideMapper;
-import com.ridehailing.model.RideRequest;
-import com.ridehailing.model.RideResponse;
+import com.ridehailing.dto.RideRequest;
+import com.ridehailing.dto.RideResponse;
 import com.ridehailing.model.Rides;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

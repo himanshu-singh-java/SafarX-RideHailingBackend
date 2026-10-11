@@ -1,7 +1,7 @@
 package com.ridehailing.mapper;
 
-import com.ridehailing.model.RideRequest;
-import com.ridehailing.model.RideResponse;
+import com.ridehailing.dto.RideRequest;
+import com.ridehailing.dto.RideResponse;
 import com.ridehailing.model.Rides;
 
 public class RideMapper {
