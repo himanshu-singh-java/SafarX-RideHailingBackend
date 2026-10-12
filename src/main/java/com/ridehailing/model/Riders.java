@@ -14,7 +14,6 @@ public class Riders {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int riderID;
 
-
     @OneToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     private Users users;

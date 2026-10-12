@@ -20,22 +20,23 @@ public interface VehicleRepository extends JpaRepository<Vehicles, Integer> {
     @Query("SELECT a FROM Auto a")
     List<Vehicles> findAllAutos();
 
+
     @Query(
-            value = "SELECT v.* FROM vehicles v " +
-                    "INNER JOIN drivers d ON v.vehicle_id = d.vehicle_id " +
-                    "WHERE d.status = 'AVAILABLE' " +
+            "SELECT v FROM Vehicles v " +
+                    "JOIN v.driver d " +
+                    "WHERE d.driverStatus = com.ridehailing.model.VehicleStatus.AVAILABLE " +
                     "AND (" +
-                    "  (UPPER(:vehicleType) = 'CAR' AND EXISTS (SELECT 1 FROM cars c WHERE c.vehicle_id = v.vehicle_id)) OR " +
-                    "  (UPPER(:vehicleType) = 'BIKE' AND EXISTS (SELECT 1 FROM bikes b WHERE b.vehicle_id = v.vehicle_id)) OR " +
-                    "  (UPPER(:vehicleType) = 'AUTO' AND EXISTS (SELECT 1 FROM autos a WHERE a.vehicle_id = v.vehicle_id))" +
+                    "  (UPPER(:vehicleType) = 'CAR' AND TYPE(v) = Car) OR " +
+                    "  (UPPER(:vehicleType) = 'BIKE' AND TYPE(v) = Bike) OR " +
+                    "  (UPPER(:vehicleType) = 'AUTO' AND TYPE(v) = Auto)" +
                     ") " +
-                    "AND (6371 * acos(cos(radians(:pickupLat)) * cos(radians(d.current_latitude)) " +
-                    "* cos(radians(d.current_longitude) - radians(:pickupLng)) " +
-                    "+ sin(radians(:pickupLat)) * sin(radians(d.current_latitude)))) <= :radius " +
-                    "ORDER BY (6371 * acos(cos(radians(:pickupLat)) * cos(radians(d.current_latitude)) " +
-                    "* cos(radians(d.current_longitude) - radians(:pickupLng)) " +
-                    "+ sin(radians(:pickupLat)) * sin(radians(d.current_latitude)))) ASC " +
-                    "LIMIT 1", nativeQuery = true
+                    "AND (6371 * acos(cos(radians(:pickupLat)) * cos(radians(d.currentLat)) " +
+                    "* cos(radians(d.currentLng) - radians(:pickupLng)) " +
+                    "+ sin(radians(:pickupLat)) * sin(radians(d.currentLat)))) <= :radius " +
+                    "ORDER BY (6371 * acos(cos(radians(:pickupLat)) * cos(radians(d.currentLat)) " +
+                    "* cos(radians(d.currentLng) - radians(:pickupLng)) " +
+                    "+ sin(radians(:pickupLat)) * sin(radians(d.currentLat)))) ASC " +
+                    "LIMIT 1"
     )
     Vehicles findNearestAvailableVehicle(@Param("vehicleType") String vehicleType,
                                          @Param("pickupLat") Double pickupLat,

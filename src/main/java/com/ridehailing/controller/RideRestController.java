@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.ridehailing.service.RideEngine;
 
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,13 +31,13 @@ public class RideRestController {
 
 
     @PostMapping("/book")
-    public ResponseEntity<?> bookRide(@RequestBody RideRequest request) {
+    public ResponseEntity<?> bookRide(@RequestBody RideRequest request, Principal principal) {
 
-            Rides currRide = rideEngine.bookRide(request);
+        String email = principal.getName();
 
-            RideResponse finalResponse = RideMapper.mapToResponse(currRide);
+        RideResponse response = rideEngine.bookRide(request, email);
 
-            return ResponseEntity.ok(finalResponse);
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/complete/{rideId}")

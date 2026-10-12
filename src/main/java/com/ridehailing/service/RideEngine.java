@@ -1,5 +1,9 @@
 package com.ridehailing.service;
-
+import com.ridehailing.dto.RideResponse;
+import com.ridehailing.exception.ResourceNotFoundException;
+import com.ridehailing.exception.RideConflictException;
+import com.ridehailing.repository.DriverRepository;
+import lombok.extern.slf4j.Slf4j;
 import com.ridehailing.dto.RideRequest;
 import com.ridehailing.mapper.RideMapper;
 import com.ridehailing.model.*;
@@ -13,6 +17,7 @@ import com.ridehailing.util.LocationUtils;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @Transactional
 public class RideEngine {
@@ -20,70 +25,86 @@ public class RideEngine {
     private VehicleRepository vehicleRepository;
     private RideRepository rideRepository;
     private RiderRepository riderRepository;
+    private DriverRepository driverRepository;
 
     @Autowired
     public RideEngine(VehicleRepository vehicleRepository,
                       RideRepository rideRepository,
-                      RiderRepository riderRepository){
+                      RiderRepository riderRepository, DriverRepository driverRepository){
         this.vehicleRepository = vehicleRepository;
         this.rideRepository = rideRepository;
         this.riderRepository = riderRepository;
+        this.driverRepository = driverRepository;
     }
 
-    public Rides bookRide(RideRequest request){
+    public RideResponse bookRide(RideRequest request, String email){
 
-        Riders riders = riderRepository.findById(request.getRiderId())
-                .orElseThrow(() -> new RuntimeException("Error: Rider with ID " + request.getRiderId() + " not found!"));
+        Riders rider = riderRepository.findWithLockByUsers_Email(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Error: Rider profile not found for this user!"));
 
-        boolean hasActiveRide = rideRepository.existsByRider_RiderIDAndRideStatus(request.getRiderId(), RideStatus.ACCEPTED);
+        boolean hasActiveRide = rideRepository.existsByRider_RiderIDAndRideStatusIn(
+                rider.getRiderID(), List.of(RideStatus.ACCEPTED, RideStatus.IN_PROGRESS)
+        );
 
         if (hasActiveRide) {
-            throw new RuntimeException("Error: You already have an active ride! Please complete or cancel it first.");
+            throw new RideConflictException("Error: You already have an active ride! Please complete or cancel it first.");
         }
 
         int[] searchRadii = {2, 5, 10};
-        Vehicles availableVehicle = null;
+        Vehicles assignedVehicle = null;
 
         for(int radius : searchRadii){
-            System.out.println("Searching for Nearest " + request.getVehicleType());
+            log.info("Searching for Nearest " + request.getVehicleType());
 
-            availableVehicle = vehicleRepository.findNearestAvailableVehicle(request.getVehicleType(),
+            Vehicles nearestVehicle = vehicleRepository.findNearestAvailableVehicle(request.getVehicleType(),
                     request.getPickupLat(), request.getPickupLng(), radius);
 
-            if(availableVehicle != null){
-                System.out.println("Success: Driver Found within " + radius + " km! ");
+            if (nearestVehicle == null) {
+                log.info("No {} found within {} km, expanding search...", request.getVehicleType(), radius);
+                continue;
+            }
+
+            int claimed = driverRepository.claimDriver(
+                    nearestVehicle.getDriver().getDriverId(),
+                    VehicleStatus.ON_RIDE,
+                    VehicleStatus.AVAILABLE
+            );
+
+            if(claimed == 1){
+                log.info("Success: Driver {} successfully claimed within {} km!", nearestVehicle.getDriver().getDriverName(), radius);
+                assignedVehicle = nearestVehicle;
                 break;
+            }
+            else {
+                log.warn("Race condition avoided: Driver was just booked by someone else. Searching next...");
             }
         }
 
 
-        if(availableVehicle == null){
-            throw new RuntimeException("Error: No available " + request.getVehicleType() + " found right now.");
+        if(assignedVehicle == null){
+            throw new ResourceNotFoundException("Error: No available " + request.getVehicleType() + " found right now.");
         }
 
         double estimatedDistance = LocationUtils.calculateDistance(request.getPickupLat(),
                 request.getPickupLng(), request.getDropLat(), request.getDropLng());
 
-        Double estimatedFare = availableVehicle.calculateFare(estimatedDistance);
+        Double estimatedFare = assignedVehicle.calculateFare(estimatedDistance);
 
-        Driver driver = availableVehicle.getDriver();
-        if(driver != null){
-            driver.setDriverStatus(VehicleStatus.ON_RIDE);
+        Driver driver = assignedVehicle.getDriver();
+        if(driver != null) {
             driver.setCurrentLat(request.getDropLat());
             driver.setCurrentLng(request.getDropLng());
         }
 
-        vehicleRepository.save(availableVehicle);
-
         Rides newRide = RideMapper.mapToEntity(request);
-        newRide.setRider(riders);
-        newRide.setVehicle(availableVehicle);
+        newRide.setRider(rider);
+        newRide.setVehicle(assignedVehicle);
         newRide.setDistanceKm(estimatedDistance);
         newRide.setFare(estimatedFare);
         newRide.setRideStatus(RideStatus.ACCEPTED);
         rideRepository.save(newRide);
 
-        return  newRide;
+        return RideMapper.mapToResponse(newRide);
     }
 
     public Rides completeRide(int rideId){
