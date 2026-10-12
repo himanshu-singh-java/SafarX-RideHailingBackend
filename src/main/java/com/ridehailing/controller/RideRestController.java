@@ -33,6 +33,13 @@ public class RideRestController {
     @PostMapping("/book")
     public ResponseEntity<?> bookRide(@RequestBody RideRequest request, Principal principal) {
 
+        if (principal == null) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", "Error: Unauthorized. Please login first.");
+            error.put("error", "Unauthorized");
+            return ResponseEntity.status(401).body(error);
+        }
+
         String email = principal.getName();
 
         RideResponse response = rideEngine.bookRide(request, email);
