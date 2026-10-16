@@ -5,9 +5,9 @@ import lombok.Data;
 @Data
 public class LocationUpdateDto {
 
-    private Long rideId;
+    private int rideId;
 
-    private Long driverId;
+    private int driverId;
 
     private double latitude;
 

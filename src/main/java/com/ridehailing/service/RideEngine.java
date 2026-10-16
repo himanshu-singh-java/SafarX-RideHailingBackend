@@ -8,6 +8,7 @@ import com.ridehailing.dto.RideRequest;
 import com.ridehailing.mapper.RideMapper;
 import com.ridehailing.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ridehailing.repository.RideRepository;
@@ -15,6 +16,7 @@ import com.ridehailing.repository.RiderRepository;
 import com.ridehailing.repository.VehicleRepository;
 import com.ridehailing.util.LocationUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -26,15 +28,19 @@ public class RideEngine {
     private RideRepository rideRepository;
     private RiderRepository riderRepository;
     private DriverRepository driverRepository;
+    private SimpMessagingTemplate messagingTemplate;
 
     @Autowired
     public RideEngine(VehicleRepository vehicleRepository,
                       RideRepository rideRepository,
-                      RiderRepository riderRepository, DriverRepository driverRepository){
+                      RiderRepository riderRepository,
+                      DriverRepository driverRepository,
+                      SimpMessagingTemplate messagingTemplate){
         this.vehicleRepository = vehicleRepository;
         this.rideRepository = rideRepository;
         this.riderRepository = riderRepository;
         this.driverRepository = driverRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     public RideResponse bookRide(RideRequest request, String email){
@@ -51,60 +57,77 @@ public class RideEngine {
         }
 
         int[] searchRadii = {2, 5, 10};
-        Vehicles assignedVehicle = null;
+        Vehicles nearestVehicle = null;
 
-        for(int radius : searchRadii){
+        for(int radius : searchRadii) {
             log.info("Searching for Nearest " + request.getVehicleType());
 
-            Vehicles nearestVehicle = vehicleRepository.findNearestAvailableVehicle(request.getVehicleType(),
-                    request.getPickupLat(), request.getPickupLng(), radius);
+            nearestVehicle = vehicleRepository.
+                    findNearestAvailableVehicle(request.getVehicleType(),
+                            request.getPickupLat(), request.getPickupLng(), radius);
 
-            if (nearestVehicle == null) {
-                log.info("No {} found within {} km, expanding search...", request.getVehicleType(), radius);
-                continue;
-            }
-
-            int claimed = driverRepository.claimDriver(
-                    nearestVehicle.getDriver().getDriverId(),
-                    VehicleStatus.ON_RIDE,
-                    VehicleStatus.AVAILABLE
-            );
-
-            if(claimed == 1){
-                log.info("Success: Driver {} successfully claimed within {} km!", nearestVehicle.getDriver().getDriverName(), radius);
-                assignedVehicle = nearestVehicle;
+            if (nearestVehicle != null) {
+                log.info("Found nearest driver {} within {} km! Sending request...",
+                        nearestVehicle.getDriver().getDriverName(), radius);
                 break;
-            }
-            else {
-                log.warn("Race condition avoided: Driver was just booked by someone else. Searching next...");
             }
         }
 
-
-        if(assignedVehicle == null){
+        if (nearestVehicle == null) {
             throw new ResourceNotFoundException("Error: No available " + request.getVehicleType() + " found right now.");
         }
 
         double estimatedDistance = LocationUtils.calculateDistance(request.getPickupLat(),
                 request.getPickupLng(), request.getDropLat(), request.getDropLng());
 
-        Double estimatedFare = assignedVehicle.calculateFare(estimatedDistance);
-
-        Driver driver = assignedVehicle.getDriver();
-        if(driver != null) {
-            driver.setCurrentLat(request.getDropLat());
-            driver.setCurrentLng(request.getDropLng());
-        }
+        Double estimatedFare = nearestVehicle.calculateFare(estimatedDistance);
 
         Rides newRide = RideMapper.mapToEntity(request);
         newRide.setRider(rider);
-        newRide.setVehicle(assignedVehicle);
+        newRide.setVehicle(nearestVehicle);
         newRide.setDistanceKm(estimatedDistance);
         newRide.setFare(estimatedFare);
-        newRide.setRideStatus(RideStatus.ACCEPTED);
-        rideRepository.save(newRide);
+        newRide.setRideStatus(RideStatus.REQUESTED);
+        Rides savedRide = rideRepository.save(newRide);
 
-        return RideMapper.mapToResponse(newRide);
+        RideResponse response = RideMapper.mapToResponse(savedRide);
+
+        int targetDriverId = nearestVehicle.getDriver().getDriverId();
+        messagingTemplate.convertAndSend("/topic/driver/" + targetDriverId, response);
+        log.info("Notification sent to Driver ID: {} on /topic/driver/{}", targetDriverId, targetDriverId);
+
+        return  response;
+    }
+
+    public RideResponse acceptRide(int rideId, int driverId){
+        Rides ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new ResourceNotFoundException("Error: Ride with ID " + rideId + " not found!"));
+
+        if(ride.getRideStatus() != RideStatus.REQUESTED){
+            throw new RideConflictException("This ride is no longer available to accept.");
+        }
+
+        int claimed = driverRepository.claimDriver(
+                driverId,
+                VehicleStatus.ON_RIDE,
+                VehicleStatus.AVAILABLE
+        );
+
+        if(claimed != 1){
+            throw new RideConflictException("Driver is not available or already on another ride.");
+        }
+
+        ride.setRideStatus(RideStatus.ACCEPTED);
+        ride.setStartTime(LocalDateTime.now());
+
+        Rides updatedRide = rideRepository.save(ride);
+
+        RideResponse response = RideMapper.mapToResponse(updatedRide);
+
+        messagingTemplate.convertAndSend("/topic/ride/" + rideId, response);
+        log.info("Ride {} ACCEPTED by Driver {}. Notified Rider on /topic/ride/{}", rideId, driverId, rideId);
+
+        return  response;
     }
 
     public Rides completeRide(int rideId){
@@ -120,13 +143,20 @@ public class RideEngine {
 
         Vehicles vehicles = ride.getVehicle();
         if (vehicles != null && vehicles.getDriver() != null) {
-            vehicles.getDriver().setDriverStatus(VehicleStatus.AVAILABLE);
+            Driver driver = vehicles.getDriver();
+            driver.setDriverStatus(VehicleStatus.AVAILABLE);
+            driver.setCurrentLat(ride.getDropLat());
+            driver.setCurrentLng(ride.getDropLng());
             vehicleRepository.save(vehicles);
         }
 
-        rideRepository.save(ride);
+        Rides savedRide = rideRepository.save(ride);
 
-        return ride;
+        RideResponse compResponse = RideMapper.mapToResponse(savedRide);
+
+        messagingTemplate.convertAndSend("/topic/ride/" + rideId, compResponse);
+
+        return savedRide;
     }
 
     public List<Rides> getRideHistory(int riderId){

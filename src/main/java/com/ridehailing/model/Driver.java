@@ -10,7 +10,7 @@ public class Driver {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "driver_id")
-    private Long driverId;
+    private int driverId;
 
     @Column(name = "driver_name")
     private String driverName;
@@ -40,11 +40,11 @@ public class Driver {
 
     }
 
-    public Long getDriverId() {
+    public int getDriverId() {
         return driverId;
     }
 
-    public void setDriverId(Long driverId) {
+    public void setDriverId(int driverId) {
         this.driverId = driverId;
     }
 

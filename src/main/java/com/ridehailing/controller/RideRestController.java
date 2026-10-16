@@ -47,6 +47,13 @@ public class RideRestController {
         return ResponseEntity.ok(response);
     }
 
+
+    @PutMapping("/accept/{rideId}")
+    public ResponseEntity<?> acceptRide(@PathVariable int rideId, @RequestParam int driverId){
+        RideResponse response = rideEngine.acceptRide(rideId, driverId);
+        return ResponseEntity.ok(response);
+    }
+
     @PutMapping("/complete/{rideId}")
     public ResponseEntity<?> completeRide(@PathVariable int rideId){
 

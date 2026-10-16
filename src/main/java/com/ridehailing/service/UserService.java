@@ -74,20 +74,26 @@ public class UserService {
         userRepository.save(user);
 
         if(request.getRole().equalsIgnoreCase("ROLE_RIDER")){
-            Riders rider = new Riders();
+            Riders rider = riderRepository.findByUsers_Email(email).orElse(new Riders());
             rider.setUsers(user);
             rider.setRiderName(request.getName());
             rider.setPhoneNum(request.getPhone());
-            rider.setRiderRating(5.0);
+            if (rider.getRiderRating() == null || rider.getRiderRating() == 0.0) {
+                rider.setRiderRating(5.0);
+            }
             riderRepository.save(rider);
             return "Rider profile created Successfully";
         }
         else if (request.getRole().equalsIgnoreCase("ROLE_DRIVER")) {
-            Driver driver = new Driver();
+            Driver driver = driverRepository.findByUser_Email(email).orElse(new Driver());
             driver.setUser(user);
             driver.setDriverName(request.getName());
-            driver.setRating(5.0);
-            driver.setDriverStatus(VehicleStatus.OFFLINE);
+            if (driver.getRating() == 0.0) {
+                driver.setRating(5.0);
+            }
+            if (driver.getDriverStatus() == null) {
+                driver.setDriverStatus(VehicleStatus.OFFLINE);
+            }
             driverRepository.save(driver);
             return "Driver profile created successfully! Please register a vehicle next.";
         }

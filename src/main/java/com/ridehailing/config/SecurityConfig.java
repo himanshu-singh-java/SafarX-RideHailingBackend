@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/rides/**").permitAll()
+                        .requestMatchers("/ws-ride/**").permitAll()
                         .requestMatchers("/login/**", "/oauth2/**").permitAll()
                         .requestMatchers("/api/rider/**").hasRole("RIDER")
                         .requestMatchers("/api/driver/**").hasRole("DRIVER")
