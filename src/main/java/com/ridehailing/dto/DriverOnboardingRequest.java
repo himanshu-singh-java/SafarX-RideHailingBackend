@@ -9,6 +9,8 @@ public class DriverOnboardingRequest {
     private String password;
     private String fullName;
     private String phone;
+    private Double latitude;
+    private Double longitude;
 
 
     private String vehicleType;

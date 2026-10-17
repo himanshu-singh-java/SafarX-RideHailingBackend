@@ -1,6 +1,7 @@
 package com.ridehailing.controller;
 
 import com.ridehailing.dto.DriverOnboardingRequest;
+import com.ridehailing.model.Driver;
 import com.ridehailing.service.DriverService;
 import com.ridehailing.service.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,14 +26,15 @@ public class DriverController {
     @PostMapping("/onboard")
     public ResponseEntity<?> onBoardDriver(@RequestBody DriverOnboardingRequest request){
 
-        String message = driverService.onBoardDriver(request);
+        Driver driver = driverService.onBoardDriver(request);
         String token = jwtService.generateToken(request.getEmail(), "ROLE_DRIVER");
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "message", message,
+                "message", "Driver & Vehicle Onboarded Successfully!",
                 "token", token,
                 "role", "ROLE_DRIVER",
-                "email", request.getEmail()
+                "email", request.getEmail(),
+                "driverId", driver.getDriverId()
         ));
     }
 }

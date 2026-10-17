@@ -29,7 +29,7 @@ public class DriverService {
     private PasswordEncoder passwordEncoder;
 
     @Transactional
-    public String onBoardDriver(DriverOnboardingRequest request){
+    public Driver onBoardDriver(DriverOnboardingRequest request){
 
         Users user = userRepository.findByEmail(request.getEmail()).orElse(null);
 
@@ -99,10 +99,10 @@ public class DriverService {
         driver.setVehicle(vehicle);
         driver.setDriverName(request.getFullName());
         driver.setRating(5.0);
-        driver.setDriverStatus(VehicleStatus.OFFLINE);
+        driver.setCurrentLat(request.getLatitude() != null ? request.getLatitude() : 17.3850);
+        driver.setCurrentLng(request.getLongitude() != null ? request.getLongitude() : 78.4867);
+        driver.setDriverStatus(VehicleStatus.AVAILABLE);
 
-        driverRepository.save(driver);
-
-        return "Driver & Vehicle Onboarded Successfully!";
+        return driverRepository.save(driver);
     }
 }
