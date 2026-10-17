@@ -2,12 +2,14 @@ package com.ridehailing.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-
+@Data
+@EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "autos")
 public class Auto extends Vehicles{
-
 
     @Column(name = "auto_model")
     private String autoModel;
@@ -31,38 +33,6 @@ public class Auto extends Vehicles{
         double ratePerKm = 15;
 
         return baseFare + (distanceKm * ratePerKm);
-    }
-
-    public String getAutoModel() {
-        return autoModel;
-    }
-
-    public void setAutoModel(String autoModel) {
-        this.autoModel = autoModel;
-    }
-
-    public String getPermitType() {
-        return permitType;
-    }
-
-    public void setPermitType(String permitType) {
-        this.permitType = permitType;
-    }
-
-    public int getPassengerCapacity() {
-        return passengerCapacity;
-    }
-
-    public void setPassengerCapacity(int passengerCapacity) {
-        this.passengerCapacity = passengerCapacity;
-    }
-
-    public Boolean isSharedAuto() {
-        return isSharedAuto;
-    }
-
-    public void setSharedAuto(Boolean sharedAuto) {
-        isSharedAuto = sharedAuto;
     }
 
     @Override

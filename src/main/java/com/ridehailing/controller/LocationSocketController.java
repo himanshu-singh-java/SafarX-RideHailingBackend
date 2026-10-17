@@ -16,7 +16,7 @@ public class LocationSocketController {
     @MessageMapping("/update-location")
     public void receiveAndForwardLocation(@Payload LocationUpdateDto location){
 
-        System.out.println("Driver " + location.getDriverId() + "is at: " + location.getLatitude());
+        System.out.println("Driver " + location.getDriverId() + " is at: " + location.getLatitude());
 
         String destination = "/topic/ride/" + location.getRideId();
 

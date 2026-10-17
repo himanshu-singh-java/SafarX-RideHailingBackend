@@ -2,8 +2,12 @@ package com.ridehailing.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 
+@Data
+@EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "cars")
 public class Car extends Vehicles{
@@ -40,53 +44,5 @@ public class Car extends Vehicles{
             baseFare = 100.0;
         }
         return baseFare + (distanceKm * perKmRate);
-    }
-
-    public String getCarModel() {
-        return carModel;
-    }
-
-    public void setCarModel(String carModel) {
-        this.carModel = carModel;
-    }
-
-    public String getCarCategory() {
-        return carCategory;
-    }
-
-    public void setCarCategory(String carCategory) {
-        this.carCategory = carCategory;
-    }
-
-    public int getPassengerCapacity() {
-        return passengerCapacity;
-    }
-
-    public void setPassengerCapacity(int passengerCapacity) {
-        this.passengerCapacity = passengerCapacity;
-    }
-
-    public Boolean isAcAvailable() {
-        return isAcAvailable;
-    }
-
-    public void setAcAvailable(Boolean acAvailable) {
-        isAcAvailable = acAvailable;
-    }
-
-    public Boolean isHasLuggageCarrier() {
-        return hasLuggageCarrier;
-    }
-
-    public void setHasLuggageCarrier(Boolean hasLuggageCarrier) {
-        this.hasLuggageCarrier = hasLuggageCarrier;
-    }
-
-    public Boolean getHasWifiOrScreen() {
-        return hasWifiOrScreen;
-    }
-
-    public void setHasWifiOrScreen(Boolean hasWifiOrScreen) {
-        this.hasWifiOrScreen = hasWifiOrScreen;
     }
 }

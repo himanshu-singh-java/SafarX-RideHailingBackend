@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/rides/**").permitAll()
                         .requestMatchers("/ws-ride/**").permitAll()
                         .requestMatchers("/login/**", "/oauth2/**").permitAll()
+                        .requestMatchers("/api/driver/onboard").permitAll()
                         .requestMatchers("/api/rider/**").hasRole("RIDER")
                         .requestMatchers("/api/driver/**").hasRole("DRIVER")
                         .anyRequest().authenticated()

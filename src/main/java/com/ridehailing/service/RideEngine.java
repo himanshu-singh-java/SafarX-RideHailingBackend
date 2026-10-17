@@ -140,6 +140,8 @@ public class RideEngine {
         }
 
         ride.setRideStatus(RideStatus.COMPLETED);
+        ride.setEndTime(LocalDateTime.now());
+
 
         Vehicles vehicles = ride.getVehicle();
         if (vehicles != null && vehicles.getDriver() != null) {
@@ -194,6 +196,7 @@ public class RideEngine {
                 .orElseThrow(() -> new RuntimeException("No Active Ride found for Vehicle Id :" + vehicleId));
 
         activeRide.setRideStatus(RideStatus.COMPLETED);
+        activeRide.setEndTime(LocalDateTime.now());
 
         Vehicles vehicles = activeRide.getVehicle();
         if(vehicles != null && vehicles.getDriver() != null){

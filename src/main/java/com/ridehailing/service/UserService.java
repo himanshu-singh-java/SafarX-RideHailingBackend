@@ -1,6 +1,7 @@
 package com.ridehailing.service;
 
 import com.ridehailing.dto.ProfileCompletionRequest;
+import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.model.*;
 import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.RiderRepository;
@@ -68,7 +69,7 @@ public class UserService {
     public String completeUserProfile(String email, ProfileCompletionRequest request){
 
         Users user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Error: User not found in database!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Error: User not found in database!"));
 
         user.setRole(Role.valueOf(request.getRole()));
         userRepository.save(user);

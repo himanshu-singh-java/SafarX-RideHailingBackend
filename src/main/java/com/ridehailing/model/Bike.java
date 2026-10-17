@@ -4,7 +4,11 @@ package com.ridehailing.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@Data
+@EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "bikes")
 public class Bike extends Vehicles {
@@ -33,46 +37,6 @@ public class Bike extends Vehicles {
         double baseFare = 20;
         double perKmRate = 6;
         return baseFare + (perKmRate * distanceKm);
-    }
-
-    public String getBikeModel() {
-        return bikeModel;
-    }
-
-    public void setBikeModel(String bikeModel) {
-        this.bikeModel = bikeModel;
-    }
-
-    public String getBikeType() {
-        return bikeType;
-    }
-
-    public void setBikeType(String bikeType) {
-        this.bikeType = bikeType;
-    }
-
-    public int getPassengerCapacity() {
-        return passengerCapacity;
-    }
-
-    public void setPassengerCapacity(int passengerCapacity) {
-        this.passengerCapacity = passengerCapacity;
-    }
-
-    public Boolean HasExtraHelmet() {
-        return hasExtraHelmet;
-    }
-
-    public void setHasExtraHelmet(Boolean hasExtraHelmet) {
-        this.hasExtraHelmet = hasExtraHelmet;
-    }
-
-    public Boolean isParcelDeliveryEnabled() {
-        return isParcelDeliveryEnabled;
-    }
-
-    public void setParcelDeliveryEnabled(Boolean parcelDeliveryEnabled) {
-        isParcelDeliveryEnabled = parcelDeliveryEnabled;
     }
 
     @Override

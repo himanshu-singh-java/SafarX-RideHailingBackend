@@ -46,7 +46,6 @@ public class VehicleRestController {
 
     @PutMapping("/complete-ride/{vehicleId}")
     public ResponseEntity<?> completeRideByVehicle(@PathVariable int vehicleId){
-
         Rides completeRide = rideEngine.completeRideByVehicleId(vehicleId);
         return ResponseEntity.ok("Ride Completed");
     }

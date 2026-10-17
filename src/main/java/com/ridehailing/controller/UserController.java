@@ -1,6 +1,7 @@
 package com.ridehailing.controller;
 
 import com.ridehailing.dto.ProfileCompletionRequest;
+import com.ridehailing.exception.UnauthorizedException;
 import com.ridehailing.model.Users;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -39,16 +40,13 @@ public class UserController {
     public ResponseEntity<?> completeProfile(@RequestBody ProfileCompletionRequest request, Principal principal){
 
         if(principal == null){
-            return ResponseEntity.status(401).body("Error: Unauthorized. Please login first.");
+            throw new UnauthorizedException("Please login first!");
         }
 
         String email = principal.getName();
 
-        try {
-            String response = userService.completeUserProfile(email, request);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        String response = userService.completeUserProfile(email, request);
+
+        return ResponseEntity.ok(response);
     }
 }

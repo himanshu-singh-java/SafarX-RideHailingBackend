@@ -23,6 +23,6 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
 
     boolean existsByRider_RiderIDAndRideStatus(int riderID, RideStatus rideStatus);
 
-    @Query("SELECT r FROM Rides r WHERE r.vehicle.vehicleId = :vehicleId AND r.rideStatus IN('ON_RIDE', 'ACCEPTED')")
+    @Query("SELECT r FROM Rides r WHERE r.vehicle.vehicleId = :vehicleId AND r.rideStatus IN('IN_PROGRESS', 'ACCEPTED')")
     Optional<Rides> findActiveRideByVehicleId(@Param("vehicleId") int vehicleId);
 }
