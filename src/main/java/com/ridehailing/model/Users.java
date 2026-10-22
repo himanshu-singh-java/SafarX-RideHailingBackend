@@ -1,5 +1,6 @@
 package com.ridehailing.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -13,7 +14,7 @@ public class Users {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(nullable = false)
+    @JsonIgnore
     private String password;
 
     @Enumerated(EnumType.STRING)

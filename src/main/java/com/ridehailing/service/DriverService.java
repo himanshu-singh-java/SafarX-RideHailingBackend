@@ -31,25 +31,17 @@ public class DriverService {
     @Transactional
     public Driver onBoardDriver(DriverOnboardingRequest request){
 
-        Users user = userRepository.findByEmail(request.getEmail()).orElse(null);
+        Optional<Users> existingDriver = userRepository.findByEmail(request.getEmail());
 
-        if(user == null){
-
-            user = new Users();
-            user.setEmail(request.getEmail());
-            user.setPassword(passwordEncoder.encode(request.getPassword()));
-            user.setRole(Role.ROLE_DRIVER);
-            user = userRepository.save(user);
-        }
-        else{
-            user.setRole(Role.ROLE_DRIVER);
-            user = userRepository.save(user);
-        }
-
-        Optional<Driver> existingDriver = driverRepository.findByUser_Email(request.getEmail());
         if(existingDriver.isPresent()){
-            throw new RideConflictException("Error: Driver profile already exists for this email!");
+            throw new RideConflictException("Error: This email is already registered! Please use a different email.");
         }
+
+        Users user = new Users();
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole(Role.ROLE_DRIVER);
+        user = userRepository.save(user);
 
         Vehicles vehicle = null;
 

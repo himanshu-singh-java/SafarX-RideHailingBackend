@@ -38,10 +38,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/rides/**").permitAll()
                         .requestMatchers("/ws-ride/**").permitAll()
                         .requestMatchers("/login/**", "/oauth2/**").permitAll()
                         .requestMatchers("/api/driver/onboard").permitAll()
+                        .requestMatchers("/api/rides/book", "/api/rides/history").hasRole("RIDER")
+                        .requestMatchers("/api/rides/accept", "/api/rides/complete").hasRole("DRIVER")
+                        .requestMatchers("/api/rides/all", "/api/rides/delete/**").hasRole("ADMIN")
                         .requestMatchers("/api/rider/**").hasRole("RIDER")
                         .requestMatchers("/api/driver/**").hasRole("DRIVER")
                         .anyRequest().authenticated()

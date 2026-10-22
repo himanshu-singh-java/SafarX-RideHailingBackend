@@ -1,6 +1,7 @@
 package com.ridehailing.controller;
 
 import com.ridehailing.dto.ProfileCompletionRequest;
+import com.ridehailing.dto.UserRegistrationRequest;
 import com.ridehailing.exception.UnauthorizedException;
 import com.ridehailing.model.Users;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import com.ridehailing.service.UserService;
 
 import java.security.Principal;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -19,10 +21,14 @@ public class UserController {
     private UserService userService;
 
     @PostMapping("/register")
-    public ResponseEntity<Users> register(@RequestBody Users users){
+    public ResponseEntity<?> register(@RequestBody UserRegistrationRequest request){
 
-        Users savedUser = userService.register(users);
-        return ResponseEntity.ok(savedUser);
+        Users savedUser = userService.register(request);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "User registered successfully!",
+                "email", savedUser.getEmail()
+        ));
     }
 
     @PostMapping("/login")

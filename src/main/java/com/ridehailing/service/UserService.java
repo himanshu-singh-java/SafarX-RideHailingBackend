@@ -1,6 +1,7 @@
 package com.ridehailing.service;
 
 import com.ridehailing.dto.ProfileCompletionRequest;
+import com.ridehailing.dto.UserRegistrationRequest;
 import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.model.*;
 import com.ridehailing.repository.DriverRepository;
@@ -35,14 +36,15 @@ public class UserService {
     @Autowired
     private DriverRepository driverRepository;
 
-    public Users register(Users user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+    public Users register(UserRegistrationRequest request) {
 
-        if(user.getRole() == null){
-            user.setRole(Role.ROLE_RIDER);
-        }
+        Users newUser = new Users();
+        newUser.setEmail(request.getEmail());
+        newUser.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        return userRepository.save(user);
+        newUser.setRole(Role.ROLE_RIDER);
+
+        return userRepository.save(newUser);
     }
 
     public String verify(Users user) {
