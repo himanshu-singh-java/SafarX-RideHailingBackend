@@ -99,16 +99,24 @@ public class RideEngine {
         return  response;
     }
 
-    public RideResponse acceptRide(int rideId, int driverId){
+    public RideResponse acceptRide(int rideId, String driverEmail){
         Rides ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: Ride with ID " + rideId + " not found!"));
+
+        Driver loggedInDriver = driverRepository.findByUser_Email(driverEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Error: Driver profile not found!"));
+
+        if(ride.getVehicle() == null || ride.getVehicle().getDriver() == null
+        || ride.getVehicle().getDriver().getDriverId() != loggedInDriver.getDriverId()){
+            throw new RideConflictException("Error: Unauthorized! You are not assigned to this ride.");
+        }
 
         if(ride.getRideStatus() != RideStatus.REQUESTED){
             throw new RideConflictException("This ride is no longer available to accept.");
         }
 
         int claimed = driverRepository.claimDriver(
-                driverId,
+                loggedInDriver.getDriverId(),
                 VehicleStatus.ON_RIDE,
                 VehicleStatus.AVAILABLE
         );
@@ -125,7 +133,7 @@ public class RideEngine {
         RideResponse response = RideMapper.mapToResponse(updatedRide);
 
         messagingTemplate.convertAndSend("/topic/ride/" + rideId, response);
-        log.info("Ride {} ACCEPTED by Driver {}. Notified Rider on /topic/ride/{}", rideId, driverId, rideId);
+        log.info("Ride {} ACCEPTED by Driver {}. Notified Rider on /topic/ride/{}", rideId, loggedInDriver, rideId);
 
         return  response;
     }

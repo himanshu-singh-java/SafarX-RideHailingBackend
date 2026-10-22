@@ -49,8 +49,9 @@ public class RideRestController {
 
 
     @PutMapping("/accept/{rideId}")
-    public ResponseEntity<?> acceptRide(@PathVariable int rideId, @RequestParam int driverId){
-        RideResponse response = rideEngine.acceptRide(rideId, driverId);
+    public ResponseEntity<?> acceptRide(@PathVariable int rideId, Principal principal){
+        String driverEmail = principal.getName();
+        RideResponse response = rideEngine.acceptRide(rideId, driverEmail);
         return ResponseEntity.ok(response);
     }
 
