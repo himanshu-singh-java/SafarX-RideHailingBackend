@@ -32,12 +32,14 @@ public class Rides {
     @Enumerated(EnumType.STRING)
     private RideStatus rideStatus;
 
-
     @Column(name = "start_time")
     private LocalDateTime startTime;
 
     @Column(name = "end_time")
     private LocalDateTime endTime;
+
+    @Column(name = "payment_status")
+    private String paymentStatus = "PENDING";
 
     @Column(name = "pickup_latitude")
     private Double pickupLat;
@@ -149,6 +151,14 @@ public class Rides {
 
     public void setEndTime(LocalDateTime endTime) {
         this.endTime = endTime;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
     }
 
     @Override

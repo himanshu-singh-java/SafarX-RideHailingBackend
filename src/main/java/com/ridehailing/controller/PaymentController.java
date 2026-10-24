@@ -1,11 +1,13 @@
 package com.ridehailing.controller;
 
 import com.razorpay.RazorpayException;
+import com.ridehailing.dto.PaymentRequest;
 import com.ridehailing.service.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -17,33 +19,30 @@ public class PaymentController {
     private PaymentService paymentService;
 
     @PostMapping(value = "/create-order", produces = "application/json")
-    public ResponseEntity<?> createOrder(@RequestBody Map<String, Object> data) throws RazorpayException {
+    public ResponseEntity<?> createOrder(@RequestBody PaymentRequest request) throws RazorpayException {
 
-        double amount = Double.parseDouble(data.get("amount").toString());
-
-        String receipt = "txn_" + System.currentTimeMillis();
-
-        String orderResponse = paymentService.createOrder(amount, receipt);
+        String orderResponse = paymentService.createOrder(request.getRideId());
 
         return ResponseEntity.ok(orderResponse);
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<?> verifyPayment(@RequestBody Map<String, String> data){
+    public ResponseEntity<?> verifyPayment(@RequestBody PaymentRequest request){
 
-        String orderId = data.get("razorpay_order_id");
-        String paymentId = data.get("razorpay_payment_id");
-        String signature = data.get("razorpay_signature");
+        boolean isAuthentic = paymentService.verifySignature(
+                request.getRideId(),
+                request.getRazorPayOrderId(),
+                request.getRazorpayPaymentId(),
+                request.getRazorpaySignatureId()
+        );
 
-        boolean isValid = paymentService.verifySignature(orderId, paymentId, signature);
-
-        if(!isValid){
-            throw new RuntimeException("Error: Invalid payment signature! Payment verification failed.");
+        if(!isAuthentic){
+            throw  new RuntimeException("Error: Invalid payment signature! Possible tampering detected.");
         }
 
-        return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Payment verified successfully!"
-        ));
+        Map<String, String > response = new HashMap<>();
+        response.put("message", "Payment verified and ride marked as PAID successfully!");
+
+        return ResponseEntity.ok(response);
     }
 }
