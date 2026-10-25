@@ -30,17 +30,17 @@ public interface VehicleRepository extends JpaRepository<Vehicles, Integer> {
                     "  (UPPER(:vehicleType) = 'BIKE' AND TYPE(v) = Bike) OR " +
                     "  (UPPER(:vehicleType) = 'AUTO' AND TYPE(v) = Auto)" +
                     ") " +
+                    "AND d.driverId NOT IN (SELECT rsl.driverId FROM RideSkippedLog rsl WHERE rsl.rideId = :rideId) " +
                     "AND (6371 * acos(cos(radians(:pickupLat)) * cos(radians(d.currentLat)) " +
                     "* cos(radians(d.currentLng) - radians(:pickupLng)) " +
-                    "+ sin(radians(:pickupLat)) * sin(radians(d.currentLat)))) <= :radius " +
-                    "ORDER BY (6371 * acos(cos(radians(:pickupLat)) * cos(radians(d.currentLat)) " +
-                    "* cos(radians(d.currentLng) - radians(:pickupLng)) " +
-                    "+ sin(radians(:pickupLat)) * sin(radians(d.currentLat)))) ASC " +
-                    "LIMIT 1"
-    )
-    Vehicles findNearestAvailableVehicle(@Param("vehicleType") String vehicleType,
-                                         @Param("pickupLat") Double pickupLat,
-                                         @Param("pickupLng") Double pickupLng,
-                                         @Param("radius") int radius);
+                    "+ sin(radians(:pickupLat)) * sin(radians(d.currentLat)))) <= :radius"
 
+    )
+    List<Vehicles> findAllAvailableVehiclesForRide(@Param("vehicleType") String vehicleType,
+                                                   @Param("pickupLat") Double pickupLat,
+                                                   @Param("pickupLng") Double pickupLng,
+                                                   @Param("radius") int radius,
+                                                   @Param("rideId") int rideId);
+
+    Vehicles findByDriver_DriverId(int driverId);
 }

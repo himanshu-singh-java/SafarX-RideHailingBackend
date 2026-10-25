@@ -66,6 +66,18 @@ public class RideRestController {
 
     }
 
+    @PutMapping("/cancel/{rideId}")
+    public ResponseEntity<?> cancelRide(@PathVariable int rideId, Principal principal){
+        if(principal == null){
+            throw new RuntimeException("Error: Unauthorized");
+        }
+
+        String riderEmail = principal.getName();
+        Rides cancelledRide = rideEngine.cancelRide(rideId, riderEmail);
+
+        return ResponseEntity.ok(RideMapper.mapToResponse(cancelledRide));
+    }
+
     @DeleteMapping("/delete/{rideId}")
     public ResponseEntity<?> deleteRide(@PathVariable int rideId) {
 
