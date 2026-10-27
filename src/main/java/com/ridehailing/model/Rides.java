@@ -18,7 +18,7 @@ public class Rides {
     @ManyToOne
     private Riders rider;
 
-    @JoinColumn(name = "vehicle_id", nullable = false)
+    @JoinColumn(name = "vehicle_id")
     @ManyToOne
     private Vehicles vehicle;
 

@@ -141,8 +141,16 @@ public class RideEngine {
             throw new RideConflictException("Error: Unauthorized! You can only cancel your own rides.");
         }
 
+        if(ride.getRideStatus() == RideStatus.COMPLETED || ride.getRideStatus() == RideStatus.CANCELLED){
+            throw new RideConflictException("Error: Ride is already " + ride.getRideStatus() + " and cannot be cancelled.");
+        }
+
+        if(ride.getRideStatus() == RideStatus.ACCEPTED || ride.getRideStatus() == RideStatus.IN_PROGRESS){
+            Driver assignedDriver = ride.getVehicle().getDriver();
+            assignedDriver.setDriverStatus(VehicleStatus.AVAILABLE);
+        }
+
         ride.setRideStatus(RideStatus.CANCELLED);
-        ride.setVehicle(null);
         Rides cancelledRide = rideRepository.save(ride);
 
         messagingTemplate.convertAndSend("/topic/ride/" + rideId, RideMapper.mapToResponse(cancelledRide));
@@ -158,15 +166,21 @@ public class RideEngine {
     @Transactional
     public RideResponse acceptRide(int rideId, String driverEmail){
 
-        Rides ride = rideRepository.findById(rideId)
-                .orElseThrow(() -> new ResourceNotFoundException("Error: Ride with ID " + rideId + " not found!"));
-
-        if(ride.getRideStatus() != RideStatus.REQUESTED){
-            throw new RideConflictException("Too late! Another driver has already accepted this ride.");
-        }
-
         Driver loggedInDriver = driverRepository.findByUser_Email(driverEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: Driver profile not found!"));
+
+        Vehicles acceptingVehicle = vehicleRepository.findByDriver_DriverId(loggedInDriver.getDriverId());
+
+        int rideClaimed = rideRepository.claimRideAtDB(
+                rideId,
+                acceptingVehicle,
+                RideStatus.ACCEPTED,
+                RideStatus.REQUESTED
+        );
+
+        if(rideClaimed != 1){
+            throw new RideConflictException("Too late! Another driver has already accepted this ride.");
+        }
 
         int claimed = driverRepository.claimDriver(
                 loggedInDriver.getDriverId(),
@@ -178,13 +192,7 @@ public class RideEngine {
             throw new RideConflictException("Driver is not available or already on another ride.");
         }
 
-        Vehicles acceptingVehicle = vehicleRepository.findByDriver_DriverId(loggedInDriver.getDriverId());
-
-        ride.setVehicle(acceptingVehicle);
-        ride.setRideStatus(RideStatus.ACCEPTED);
-        ride.setStartTime(LocalDateTime.now());
-
-        Rides updatedRide = rideRepository.save(ride);
+        Rides updatedRide = rideRepository.findById(rideId).get();
         RideResponse response = RideMapper.mapToResponse(updatedRide);
 
         messagingTemplate.convertAndSend("/topic/ride/" + rideId, response);
