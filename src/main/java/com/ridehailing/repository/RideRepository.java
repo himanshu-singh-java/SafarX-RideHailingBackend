@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +25,8 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
     boolean existsByRider_RiderIDAndRideStatusIn(int riderId, Collection<RideStatus> statuses);
 
     boolean existsByRider_RiderIDAndRideStatus(int riderID, RideStatus rideStatus);
+
+    List<Rides> findByRideStatusAndLastBroadcastAtBefore(RideStatus rideStatus, LocalDateTime cutOffTime);
 
     @Query("SELECT r FROM Rides r WHERE r.vehicle.vehicleId = :vehicleId AND r.rideStatus IN('IN_PROGRESS', 'ACCEPTED')")
     Optional<Rides> findActiveRideByVehicleId(@Param("vehicleId") int vehicleId);

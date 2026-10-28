@@ -71,64 +71,83 @@ public class RideEngine {
         newRide.setDistanceKm(estimatedDistance);
         newRide.setFare(0.0);
         newRide.setRideStatus(RideStatus.REQUESTED);
+
+        newRide.setVehicleType(request.getVehicleType());
+        newRide.setCurrentRadiusIndex(0);
+        newRide.setLastBroadcastAt(LocalDateTime.now());
+
         Rides savedRide = rideRepository.save(newRide);
 
-        broadcastRide(savedRide.getRideId(), request, 0);
+        broadcastRide(savedRide.getRideId());
 
-        RideResponse response = RideMapper.mapToResponse(savedRide);
-
-        return  response;
+        return RideMapper.mapToResponse(savedRide);
     }
 
-    public void broadcastRide(int rideId, RideRequest request, int radiusIndex){
-        if(radiusIndex >= SEARCH_RADII.length) {
-            log.info("No drivers accepted in max radius for ride {}", rideId);
-            cancelRide(rideId);
+    @Transactional
+    public void broadcastRide(int rideId){
+
+        Rides ride = rideRepository.findById(rideId).orElse(null);
+
+        if(ride == null || ride.getRideStatus() != RideStatus.REQUESTED){
             return;
         }
 
-        int currentRadius = SEARCH_RADII[radiusIndex];
+        int radiusIndex = ride.getCurrentRadiusIndex();
 
-        List<Vehicles> availableVehicles = vehicleRepository.findAllAvailableVehiclesForRide(
-                request.getVehicleType(), request.getPickupLat(), request.getPickupLng(), currentRadius, rideId
-        );
+        while (radiusIndex < SEARCH_RADII.length) {
+            int currentRadius = SEARCH_RADII[radiusIndex];
 
-        if(availableVehicles.isEmpty()){
-            broadcastRide(rideId, request, radiusIndex + 1);
+            List<Vehicles> availableVehicles = vehicleRepository.findAllAvailableVehiclesForRide(
+                    ride.getVehicleType(), ride.getPickupLat(), ride.getPickupLng(), currentRadius, rideId
+            );
+
+            if (availableVehicles.isEmpty()) {
+                radiusIndex++;
+                continue;
+            }
+
+            double estimatedFare = availableVehicles.get(0).calculateFare(ride.getDistanceKm());
+            ride.setFare(estimatedFare);
+            ride.setCurrentRadiusIndex(radiusIndex);
+            ride.setLastBroadcastAt(LocalDateTime.now());
+            rideRepository.save(ride);
+
+            RideResponse response = RideMapper.mapToResponse(ride);
+
+            for (Vehicles vehicles : availableVehicles) {
+                int driverId = vehicles.getDriver().getDriverId();
+                messagingTemplate.convertAndSend("/topic/driver/" + driverId, response);
+                rideSkippedLogRepository.save(new RideSkippedLog(rideId, driverId));
+            }
+
+            log.info("Ride {} broadcasted to {} drivers in {} km radius.", rideId, availableVehicles.size(), currentRadius);
             return;
         }
 
-        double estimatedDistance = LocationUtils.calculateDistance(request.getPickupLat(),
-                request.getPickupLng(), request.getDropLat(), request.getDropLng());
-        double estimatedFare = availableVehicles.get(0).calculateFare(estimatedDistance);
+        log.info("No drivers accepted in max radius for ride {}", rideId);
+        cancelRide(rideId);
+    }
 
-        Rides ride = rideRepository.findById(rideId).orElseThrow();
-        ride.setFare(estimatedFare);
+    @Transactional
+    public void handleRideTimeout(int rideId){
+        Rides ride = rideRepository.findById(rideId).orElse(null);
+
+        if(ride == null || ride.getRideStatus() != RideStatus.REQUESTED){
+            return;
+        }
+
+        log.info("Timeout for ride {} at radius index {}. Expanding radius.", rideId, ride.getCurrentRadiusIndex());
+
+        List<RideSkippedLog> notifiedDrivers = rideSkippedLogRepository.findByRideId(rideId);
+
+        for(RideSkippedLog skipped : notifiedDrivers){
+            messagingTemplate.convertAndSend("/topic/driver/" + skipped.getDriverId(), "TIMEOUT");
+        }
+
+        ride.setCurrentRadiusIndex(ride.getCurrentRadiusIndex() + 1);
         rideRepository.save(ride);
 
-        RideResponse response = RideMapper.mapToResponse(ride);
-
-        for(Vehicles vehicles : availableVehicles){
-            int driverId = vehicles.getDriver().getDriverId();
-            messagingTemplate.convertAndSend("/topic/driver/" + driverId, response);
-            rideSkippedLogRepository.save(new RideSkippedLog(rideId, driverId));
-        }
-
-        log.info("Ride {} broadcasted to {} drivers in {} km radius.", rideId, availableVehicles.size(), currentRadius);
-
-        CompletableFuture.delayedExecutor(20, TimeUnit.SECONDS).execute(() -> {
-            Rides checkRide = rideRepository.findById(rideId).orElse(null);
-
-            if(checkRide != null && checkRide.getRideStatus() == RideStatus.REQUESTED){
-                log.info("Timeout for ride {}. Expanding radius.", rideId);
-
-                for(Vehicles vehicles : availableVehicles){
-                    messagingTemplate.convertAndSend("/topic/driver/" + vehicles.getDriver().getDriverId(), "TIMEOUT");
-                }
-
-                broadcastRide(rideId, request, radiusIndex + 1);
-            }
-        });
+        broadcastRide(rideId);
     }
 
     @Transactional

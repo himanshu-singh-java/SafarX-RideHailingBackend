@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
-
 @Entity
 @Table(name = "rides")
 public class Rides {
@@ -52,6 +51,15 @@ public class Rides {
 
     @Column(name = "drop_longitude")
     private Double dropLng;
+
+    @Column(name = "vehicle_type")
+    private String vehicleType;
+
+    @Column(name = "current_radius_index")
+    private int currentRadiusIndex = 0;
+
+    @Column(name = "last_broadcast_at")
+    private LocalDateTime lastBroadcastAt;
 
     public Rides(){
 
@@ -161,6 +169,30 @@ public class Rides {
         this.paymentStatus = paymentStatus;
     }
 
+    public String getVehicleType() {
+        return vehicleType;
+    }
+
+    public void setVehicleType(String vehicleType) {
+        this.vehicleType = vehicleType;
+    }
+
+    public int getCurrentRadiusIndex() {
+        return currentRadiusIndex;
+    }
+
+    public void setCurrentRadiusIndex(int currentRadiusIndex) {
+        this.currentRadiusIndex = currentRadiusIndex;
+    }
+
+    public LocalDateTime getLastBroadcastAt() {
+        return lastBroadcastAt;
+    }
+
+    public void setLastBroadcastAt(LocalDateTime lastBroadcastAt) {
+        this.lastBroadcastAt = lastBroadcastAt;
+    }
+
     @Override
     public String toString() {
         return "Rides{" +
@@ -172,10 +204,14 @@ public class Rides {
                 ", rideStatus=" + rideStatus +
                 ", startTime=" + startTime +
                 ", endTime=" + endTime +
+                ", paymentStatus='" + paymentStatus + '\'' +
                 ", pickupLat=" + pickupLat +
                 ", pickupLng=" + pickupLng +
                 ", dropLat=" + dropLat +
                 ", dropLng=" + dropLng +
+                ", vehicleType='" + vehicleType + '\'' +
+                ", currentRadiusIndex=" + currentRadiusIndex +
+                ", lastBroadcastAt=" + lastBroadcastAt +
                 '}';
     }
 }
