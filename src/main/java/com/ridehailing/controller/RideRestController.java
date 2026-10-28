@@ -22,11 +22,17 @@ public class RideRestController {
     private RideEngine rideEngine;
 
     @GetMapping("/history/{riderId}")
-    public ResponseEntity<?> getAllRides(@PathVariable int riderId){
+    public ResponseEntity<?> getAllRides(@PathVariable int riderId, Principal principal){
 
-            List<Rides> rideHistory = rideEngine.getRideHistory(riderId);
+        if (principal == null) {
+            throw new RuntimeException("Error: Unauthorized!");
+        }
 
-            return ResponseEntity.ok(rideHistory);
+        String riderEmail = principal.getName();
+
+        List<Rides> rideHistory = rideEngine.getRideHistory(riderId, riderEmail);
+
+        return ResponseEntity.ok(rideHistory);
     }
 
 
@@ -56,13 +62,19 @@ public class RideRestController {
     }
 
     @PutMapping("/complete/{rideId}")
-    public ResponseEntity<?> completeRide(@PathVariable int rideId){
+    public ResponseEntity<?> completeRide(@PathVariable int rideId, Principal principal){
 
-            Rides rides = rideEngine.completeRide(rideId);
+        if (principal == null) {
+            throw new RuntimeException("Error: Unauthorized!");
+        }
 
-            RideResponse compResponse = RideMapper.mapToResponse(rides);
+        String driverEmail = principal.getName();
 
-            return ResponseEntity.ok(compResponse);
+        Rides rides = rideEngine.completeRide(rideId, driverEmail);
+
+        RideResponse compResponse = RideMapper.mapToResponse(rides);
+
+        return ResponseEntity.ok(compResponse);
 
     }
 

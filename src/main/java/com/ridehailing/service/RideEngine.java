@@ -145,7 +145,8 @@ public class RideEngine {
             throw new RideConflictException("Error: Ride is already " + ride.getRideStatus() + " and cannot be cancelled.");
         }
 
-        if(ride.getRideStatus() == RideStatus.ACCEPTED || ride.getRideStatus() == RideStatus.IN_PROGRESS){
+        if((ride.getRideStatus() == RideStatus.ACCEPTED || ride.getRideStatus() == RideStatus.IN_PROGRESS)
+        && ride.getVehicle() != null && ride.getVehicle().getDriver() != null){
             Driver assignedDriver = ride.getVehicle().getDriver();
             assignedDriver.setDriverStatus(VehicleStatus.AVAILABLE);
         }
@@ -202,13 +203,26 @@ public class RideEngine {
     }
 
     @Transactional
-    public Rides completeRide(int rideId){
+    public Rides completeRide(int rideId, String driverEmail){
 
         Rides ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Error: Ride with ID " + rideId + " not found!"));
 
+        Driver loggedInDriver = driverRepository.findByUser_Email(driverEmail).orElseThrow(
+                () -> new ResourceNotFoundException("Error: Driver profile not found!"
+        ));
+
+        if(ride.getVehicle() == null || ride.getVehicle().getDriver() == null ||
+        ride.getVehicle().getDriver().getDriverId() != loggedInDriver.getDriverId()){
+            throw new RideConflictException("Error: Unauthorized! You can only complete rides assigned to you.");
+        }
+
         if(ride.getRideStatus() == RideStatus.COMPLETED){
             throw new RuntimeException("This ride is already marked as COMPLETED.");
+        }
+
+        if(ride.getRideStatus() != RideStatus.ACCEPTED && ride.getRideStatus() != RideStatus.IN_PROGRESS){
+            throw new RideConflictException("Error: Cannot complete a ride with status " + ride.getRideStatus());
         }
 
         ride.setRideStatus(RideStatus.COMPLETED);
@@ -232,10 +246,14 @@ public class RideEngine {
         return savedRide;
     }
 
-    public List<Rides> getRideHistory(int riderId){
+    public List<Rides> getRideHistory(int riderId, String riderEmail){
 
         Riders rider = riderRepository.findById(riderId)
                 .orElseThrow(() -> new RuntimeException("Error: Rider with ID " + riderId + " not found!"));
+
+        if(!rider.getUsers().getEmail().equals(riderEmail)){
+            throw new RideConflictException("Error: Unauthorized! You can only view your own ride history.");
+        }
 
         return  rideRepository.findByRider_RiderIDOrderByRideIdDesc(riderId);
     }
