@@ -12,11 +12,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ridehailing.util.LocationUtils;
-
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -28,7 +27,7 @@ public class RideEngine {
     private RiderRepository riderRepository;
     private DriverRepository driverRepository;
     private SimpMessagingTemplate messagingTemplate;
-    private RideSkippedLogRepository rideSkippedLogRepository;
+    private RideNotifiedDriverRepository rideNotifiedDriverRepository;
 
     private final int[] SEARCH_RADII = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
@@ -38,14 +37,14 @@ public class RideEngine {
                       RiderRepository riderRepository,
                       DriverRepository driverRepository,
                       SimpMessagingTemplate messagingTemplate,
-                      RideSkippedLogRepository rideSkippedLogRepository){
+                      RideNotifiedDriverRepository rideNotifiedDriverRepository){
 
         this.vehicleRepository = vehicleRepository;
         this.rideRepository = rideRepository;
         this.riderRepository = riderRepository;
         this.driverRepository = driverRepository;
         this.messagingTemplate = messagingTemplate;
-        this.rideSkippedLogRepository = rideSkippedLogRepository;
+        this.rideNotifiedDriverRepository = rideNotifiedDriverRepository;
     }
 
     public RideResponse bookRide(RideRequest request, String email){
@@ -54,7 +53,7 @@ public class RideEngine {
                 .orElseThrow(() -> new ResourceNotFoundException("Error: Rider profile not found for this user!"));
 
         boolean hasActiveRide = rideRepository.existsByRider_RiderIDAndRideStatusIn(
-                rider.getRiderID(), List.of(RideStatus.ACCEPTED, RideStatus.IN_PROGRESS)
+                rider.getRiderID(), List.of(RideStatus.REQUESTED, RideStatus.ACCEPTED, RideStatus.IN_PROGRESS)
         );
 
         if (hasActiveRide) {
@@ -106,18 +105,29 @@ public class RideEngine {
                 continue;
             }
 
-            double estimatedFare = availableVehicles.get(0).calculateFare(ride.getDistanceKm());
-            ride.setFare(estimatedFare);
-            ride.setCurrentRadiusIndex(radiusIndex);
-            ride.setLastBroadcastAt(LocalDateTime.now());
-            rideRepository.save(ride);
+            double fareToSave = (ride.getFare() == null || ride.getFare() == 0.0) ?
+                    availableVehicles.get(0).calculateFare(ride.getDistanceKm()) : ride.getFare();
+
+            int updatedRows = rideRepository.updateBroadcastStateAtDB(
+                    rideId,
+                    fareToSave,
+                    radiusIndex,
+                    LocalDateTime.now()
+            );
+
+            if(updatedRows == 0){
+                log.info("Ride {} was accepted during broadcast execution. Aborting further broadcast to prevent stale write.", rideId);
+                return;
+            }
+
+            ride = rideRepository.findById(rideId).orElseThrow();
 
             RideResponse response = RideMapper.mapToResponse(ride);
 
             for (Vehicles vehicles : availableVehicles) {
                 int driverId = vehicles.getDriver().getDriverId();
                 messagingTemplate.convertAndSend("/topic/driver/" + driverId, response);
-                rideSkippedLogRepository.save(new RideSkippedLog(rideId, driverId));
+                rideNotifiedDriverRepository.save(new RideNotifiedDriver(rideId, driverId));
             }
 
             log.info("Ride {} broadcasted to {} drivers in {} km radius.", rideId, availableVehicles.size(), currentRadius);
@@ -138,10 +148,14 @@ public class RideEngine {
 
         log.info("Timeout for ride {} at radius index {}. Expanding radius.", rideId, ride.getCurrentRadiusIndex());
 
-        List<RideSkippedLog> notifiedDrivers = rideSkippedLogRepository.findByRideId(rideId);
+        List<RideNotifiedDriver> notifiedDrivers = rideNotifiedDriverRepository.findByRideId(rideId);
 
-        for(RideSkippedLog skipped : notifiedDrivers){
-            messagingTemplate.convertAndSend("/topic/driver/" + skipped.getDriverId(), "TIMEOUT");
+        Map<String, Object> timeoutEvent = new HashMap<>();
+        timeoutEvent.put("type", "TIMEOUT");
+        timeoutEvent.put("rideId", rideId);
+
+        for(RideNotifiedDriver skipped : notifiedDrivers){
+            messagingTemplate.convertAndSend("/topic/driver/" + skipped.getDriverId(), timeoutEvent);
         }
 
         ride.setCurrentRadiusIndex(ride.getCurrentRadiusIndex() + 1);
@@ -191,9 +205,25 @@ public class RideEngine {
 
         Vehicles acceptingVehicle = vehicleRepository.findByDriver_DriverId(loggedInDriver.getDriverId());
 
+        if(acceptingVehicle == null){
+            throw new RideConflictException("Error: You do not have a registered vehicle to accept this ride.");
+        }
+
+        boolean wasNotified = rideNotifiedDriverRepository.existsByRideIdAndDriverId(rideId, loggedInDriver.getDriverId());
+
+        if(!wasNotified){
+            throw new RideConflictException("Error: Unauthorized! You were not notified for this ride or your vehicle type doesn't match.");
+        }
+
+        Rides rideForDistance = rideRepository.findById(rideId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ride not found!"));
+
+        double finalFare = acceptingVehicle.calculateFare(rideForDistance.getDistanceKm());
+
         int rideClaimed = rideRepository.claimRideAtDB(
                 rideId,
                 acceptingVehicle,
+                finalFare,
                 RideStatus.ACCEPTED,
                 RideStatus.REQUESTED
         );
@@ -216,7 +246,18 @@ public class RideEngine {
         RideResponse response = RideMapper.mapToResponse(updatedRide);
 
         messagingTemplate.convertAndSend("/topic/ride/" + rideId, response);
-        log.info("Ride {} ACCEPTED by Driver {}. Notified Rider on /topic/ride/{}", rideId, loggedInDriver, rideId);
+        log.info("Ride {} ACCEPTED by Driver {}. Final Fare locked. Notified Rider.", rideId, loggedInDriver.getDriverId());
+
+        List<RideNotifiedDriver> allNotified = rideNotifiedDriverRepository.findByRideId(rideId);
+        Map<String, Object> rideTakenEvent = new HashMap<>();
+        rideTakenEvent.put("type", "RIDE_TAKEN");
+        rideTakenEvent.put("rideId", rideId);
+
+        for (RideNotifiedDriver nd : allNotified) {
+            if (nd.getDriverId() != loggedInDriver.getDriverId()) {
+                messagingTemplate.convertAndSend("/topic/driver/" + nd.getDriverId(), rideTakenEvent);
+            }
+        }
 
         return  response;
     }
