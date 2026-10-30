@@ -3,7 +3,9 @@ package com.ridehailing.model;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "ride_notified_drivers")
+@Table(name = "ride_notified_drivers", indexes = {
+        @Index(name = "idx_ride_driver", columnList = "ride_id, driver_id")
+})
 public class RideNotifiedDriver {
 
     @Id

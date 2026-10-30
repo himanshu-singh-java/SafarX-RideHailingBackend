@@ -2,6 +2,7 @@ package com.ridehailing.service;
 
 import com.ridehailing.dto.ProfileCompletionRequest;
 import com.ridehailing.dto.UserRegistrationRequest;
+import com.ridehailing.exception.ForbiddenException;
 import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.model.*;
 import com.ridehailing.repository.DriverRepository;
@@ -73,7 +74,13 @@ public class UserService {
         Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: User not found in database!"));
 
-        user.setRole(Role.valueOf(request.getRole()));
+        String requestedRole = request.getRole().toUpperCase();
+
+        if(!requestedRole.equals("ROLE_RIDER") && !requestedRole.equals("ROLE_DRIVER")){
+            throw new ForbiddenException("Error: Unauthorized or invalid role selection!");
+        }
+
+        user.setRole(Role.valueOf(requestedRole));
         userRepository.save(user);
 
         if(request.getRole().equalsIgnoreCase("ROLE_RIDER")){

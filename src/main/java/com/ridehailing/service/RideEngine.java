@@ -1,5 +1,7 @@
 package com.ridehailing.service;
 import com.ridehailing.dto.RideResponse;
+import com.ridehailing.event.RideBroadcastEvent;
+import com.ridehailing.exception.ForbiddenException;
 import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.exception.RideConflictException;
 import com.ridehailing.repository.*;
@@ -8,11 +10,13 @@ import com.ridehailing.dto.RideRequest;
 import com.ridehailing.mapper.RideMapper;
 import com.ridehailing.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ridehailing.util.LocationUtils;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +32,7 @@ public class RideEngine {
     private DriverRepository driverRepository;
     private SimpMessagingTemplate messagingTemplate;
     private RideNotifiedDriverRepository rideNotifiedDriverRepository;
+    private ApplicationEventPublisher publisher;
 
     private final int[] SEARCH_RADII = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
@@ -37,7 +42,8 @@ public class RideEngine {
                       RiderRepository riderRepository,
                       DriverRepository driverRepository,
                       SimpMessagingTemplate messagingTemplate,
-                      RideNotifiedDriverRepository rideNotifiedDriverRepository){
+                      RideNotifiedDriverRepository rideNotifiedDriverRepository,
+                      ApplicationEventPublisher publisher){
 
         this.vehicleRepository = vehicleRepository;
         this.rideRepository = rideRepository;
@@ -45,6 +51,7 @@ public class RideEngine {
         this.driverRepository = driverRepository;
         this.messagingTemplate = messagingTemplate;
         this.rideNotifiedDriverRepository = rideNotifiedDriverRepository;
+        this.publisher = publisher;
     }
 
     public RideResponse bookRide(RideRequest request, String email){
@@ -79,7 +86,9 @@ public class RideEngine {
 
         broadcastRide(savedRide.getRideId());
 
-        return RideMapper.mapToResponse(savedRide);
+        Rides finalRide = rideRepository.findById(savedRide.getRideId()).orElseThrow();
+
+        return RideMapper.mapToResponse(finalRide);
     }
 
     @Transactional
@@ -93,12 +102,27 @@ public class RideEngine {
 
         int radiusIndex = ride.getCurrentRadiusIndex();
 
+        int maxRadius = SEARCH_RADII[SEARCH_RADII.length - 1];
+
+        List<Vehicles> allVehiclesInMaxRadius = vehicleRepository.findAllAvailableVehiclesForRide(
+                ride.getVehicleType(), ride.getPickupLat(), ride.getPickupLng(), maxRadius, rideId
+        );
+
         while (radiusIndex < SEARCH_RADII.length) {
             int currentRadius = SEARCH_RADII[radiusIndex];
 
-            List<Vehicles> availableVehicles = vehicleRepository.findAllAvailableVehiclesForRide(
-                    ride.getVehicleType(), ride.getPickupLat(), ride.getPickupLng(), currentRadius, rideId
-            );
+            List<Vehicles> availableVehicles = new ArrayList<>();
+
+            for(Vehicles vehicle : allVehiclesInMaxRadius){
+                double dist = LocationUtils.calculateDistance(
+                        ride.getPickupLat(), ride.getPickupLng(),
+                        vehicle.getDriver().getCurrentLat(), vehicle.getDriver().getCurrentLng()
+                );
+
+                if(dist <= currentRadius){
+                    availableVehicles.add(vehicle);
+                }
+            }
 
             if (availableVehicles.isEmpty()) {
                 radiusIndex++;
@@ -121,14 +145,17 @@ public class RideEngine {
             }
 
             ride = rideRepository.findById(rideId).orElseThrow();
-
             RideResponse response = RideMapper.mapToResponse(ride);
+
+            List<Integer> driversToNotify = new ArrayList<>();
 
             for (Vehicles vehicles : availableVehicles) {
                 int driverId = vehicles.getDriver().getDriverId();
-                messagingTemplate.convertAndSend("/topic/driver/" + driverId, response);
                 rideNotifiedDriverRepository.save(new RideNotifiedDriver(rideId, driverId));
+                driversToNotify.add(driverId);
             }
+
+            publisher.publishEvent(new RideBroadcastEvent(rideId, response, driversToNotify));
 
             log.info("Ride {} broadcasted to {} drivers in {} km radius.", rideId, availableVehicles.size(), currentRadius);
             return;
@@ -171,7 +198,7 @@ public class RideEngine {
                 .orElseThrow(() -> new ResourceNotFoundException("Ride not found!"));
 
         if(riderEmail != null && !ride.getRider().getUsers().getEmail().equals(riderEmail)){
-            throw new RideConflictException("Error: Unauthorized! You can only cancel your own rides.");
+            throw new ForbiddenException("Error: Unauthorized! You can only cancel your own rides.");
         }
 
         if(ride.getRideStatus() == RideStatus.COMPLETED || ride.getRideStatus() == RideStatus.CANCELLED){
@@ -274,7 +301,7 @@ public class RideEngine {
 
         if(ride.getVehicle() == null || ride.getVehicle().getDriver() == null ||
         ride.getVehicle().getDriver().getDriverId() != loggedInDriver.getDriverId()){
-            throw new RideConflictException("Error: Unauthorized! You can only complete rides assigned to you.");
+            throw new ForbiddenException("Error: Unauthorized! You can only complete rides assigned to you.");
         }
 
         if(ride.getRideStatus() == RideStatus.COMPLETED){
@@ -312,7 +339,7 @@ public class RideEngine {
                 .orElseThrow(() -> new RuntimeException("Error: Rider with ID " + riderId + " not found!"));
 
         if(!rider.getUsers().getEmail().equals(riderEmail)){
-            throw new RideConflictException("Error: Unauthorized! You can only view your own ride history.");
+            throw new ForbiddenException("Error: Unauthorized! You can only view your own ride history.");
         }
 
         return  rideRepository.findByRider_RiderIDOrderByRideIdDesc(riderId);
