@@ -31,6 +31,9 @@ public class Rides {
     @Enumerated(EnumType.STRING)
     private RideStatus rideStatus;
 
+    @Column(name = "razorpay_order_id")
+    private String razorPayOrderId;
+
     @Column(name = "start_time")
     private LocalDateTime startTime;
 
@@ -193,6 +196,14 @@ public class Rides {
         this.lastBroadcastAt = lastBroadcastAt;
     }
 
+    public String getRazorPayOrderId() {
+        return razorPayOrderId;
+    }
+
+    public void setRazorPayOrderId(String razorPayOrderId) {
+        this.razorPayOrderId = razorPayOrderId;
+    }
+
     @Override
     public String toString() {
         return "Rides{" +
@@ -202,6 +213,7 @@ public class Rides {
                 ", distanceKm=" + distanceKm +
                 ", fare=" + fare +
                 ", rideStatus=" + rideStatus +
+                ", razorPayOrderId='" + razorPayOrderId + '\'' +
                 ", startTime=" + startTime +
                 ", endTime=" + endTime +
                 ", paymentStatus='" + paymentStatus + '\'' +

@@ -13,7 +13,7 @@ public interface DriverRepository extends JpaRepository<Driver, Integer> {
 
     Optional<Driver> findByUser_Email(String email);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Driver d SET d.driverStatus = :newStatus WHERE d.driverId = :driverId AND d.driverStatus = :expectedStatus")
     int claimDriver(@Param("driverId") int driverId,
                     @Param("newStatus") VehicleStatus newStatus,

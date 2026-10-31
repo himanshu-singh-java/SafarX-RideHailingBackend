@@ -191,6 +191,33 @@ public class RideEngine {
         broadcastRide(rideId);
     }
 
+    public RideResponse startRide(int rideId, String driverEmail){
+
+        Rides ride = rideRepository.findById(rideId).
+                orElseThrow(() -> new ResourceNotFoundException("Error: Ride not found!"));
+
+        Driver loggedInDriver = driverRepository.findByUser_Email(driverEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Error: Driver profile not found!"));
+
+        if(ride.getVehicle() == null || ride.getVehicle().getDriver() == null
+        || ride.getVehicle().getDriver().getDriverId() != loggedInDriver.getDriverId()){
+            throw new ForbiddenException("Error: Unauthorized! You can only start rides assigned to you.");
+        }
+
+        if (ride.getRideStatus() != RideStatus.ACCEPTED){
+            throw new RideConflictException("Error: Ride can only be started from ACCEPTED state. Current state: " + ride.getRideStatus());
+        }
+
+        ride.setRideStatus(RideStatus.IN_PROGRESS);
+        ride.setStartTime(LocalDateTime.now());
+        Rides savedRide = rideRepository.save(ride);
+
+        RideResponse response = RideMapper.mapToResponse(savedRide);
+        messagingTemplate.convertAndSend("/topic/ride/" + rideId, response);
+
+        return response;
+    }
+
     @Transactional
     public Rides cancelRide(int rideId, String riderEmail){
 
@@ -350,7 +377,7 @@ public class RideEngine {
         Rides rides = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Error: Cannot delete. Ride with ID " + rideId + " not found!"));
 
-        if(rides.getRideStatus() == RideStatus.ACCEPTED){
+        if(rides.getRideStatus() == RideStatus.ACCEPTED || rides.getRideStatus() == RideStatus.IN_PROGRESS){
             Vehicles vehicles = rides.getVehicle();
 
             if(vehicles != null && vehicles.getDriver() != null){

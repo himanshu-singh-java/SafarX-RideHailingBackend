@@ -21,6 +21,7 @@ public interface VehicleRepository extends JpaRepository<Vehicles, Integer> {
     List<Vehicles> findAllAutos();
 
 
+
     @Query(
             "SELECT v FROM Vehicles v " +
                     "JOIN v.driver d " +
@@ -31,10 +32,9 @@ public interface VehicleRepository extends JpaRepository<Vehicles, Integer> {
                     "  (UPPER(:vehicleType) = 'AUTO' AND TYPE(v) = Auto)" +
                     ") " +
                     "AND d.driverId NOT IN (SELECT rnd.driverId FROM RideNotifiedDriver rnd WHERE rnd.rideId = :rideId) " +
-                    "AND (6371 * acos(cos(radians(:pickupLat)) * cos(radians(d.currentLat)) " +
+                    "AND (6371 * acos(LEAST(1.0, cos(radians(:pickupLat)) * cos(radians(d.currentLat)) " +
                     "* cos(radians(d.currentLng) - radians(:pickupLng)) " +
-                    "+ sin(radians(:pickupLat)) * sin(radians(d.currentLat)))) <= :radius"
-
+                    "+ sin(radians(:pickupLat)) * sin(radians(d.currentLat))))) <= :radius"
     )
     List<Vehicles> findAllAvailableVehiclesForRide(@Param("vehicleType") String vehicleType,
                                                    @Param("pickupLat") Double pickupLat,

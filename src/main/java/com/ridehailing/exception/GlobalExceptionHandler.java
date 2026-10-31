@@ -12,36 +12,43 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleResourceNotFoundException(ResourceNotFoundException ex) {
-        Map<String, String> body = new HashMap<>();
-        body.put("message", ex.getMessage());
-        body.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    public ResponseEntity<?> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        return buildErrorResponse(ex.getMessage(), HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(RideConflictException.class)
-    public ResponseEntity<Map<String, String>> handleRideConflictException(RideConflictException ex) {
-        Map<String, String> body = new HashMap<>();
-        body.put("message", ex.getMessage());
-        body.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    public ResponseEntity<?> handleRideConflictException(RideConflictException ex) {
+        return buildErrorResponse(ex.getMessage(), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<Map<String, String>> handleUnauthorizedException(UnauthorizedException ex) {
-        Map<String, String> body = new HashMap<>();
-        body.put("message", ex.getMessage());
-        body.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    public ResponseEntity<?> handleUnauthorizedException(UnauthorizedException ex) {
+        return buildErrorResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<?> handleIllegalArgumentException(IllegalArgumentException ex){
+        return  buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<?> handleForbiddenException(ForbiddenException ex) {
+        return buildErrorResponse(ex.getMessage(), HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGlobalException(Exception ex) {
+        System.out.println("CRITICAL ERROR: " + ex.getMessage());
         Map<String, String> body = new HashMap<>();
-        body.put("message", "An error occurred: " + ex.getMessage());
-        body.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        body.put("message", "An unexpected internal server error occurred.");
+        body.put("error", "Internal Server Error");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
-
+    private ResponseEntity<?> buildErrorResponse(String message, HttpStatus status){
+        Map<String, String> body = new HashMap<>();
+        body.put("message", message);
+        body.put("error", status.getReasonPhrase());
+        return ResponseEntity.status(status).body(body);
+    }
 }

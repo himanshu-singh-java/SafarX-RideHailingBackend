@@ -1,11 +1,13 @@
 package com.ridehailing.controller;
 
+import com.ridehailing.dto.LoginRequest;
 import com.ridehailing.dto.ProfileCompletionRequest;
 import com.ridehailing.dto.UserRegistrationRequest;
 import com.ridehailing.exception.UnauthorizedException;
 import com.ridehailing.model.Users;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 import com.ridehailing.service.UserService;
 
@@ -14,7 +16,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:5173")
 public class UserController {
 
     @Autowired
@@ -32,7 +33,12 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody Users user){
+    public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest){
+
+        Users user = new Users();
+        user.setEmail(loginRequest.getEmail());
+        user.setPassword(loginRequest.getPassword());
+
         String token = userService.verify(user);
 
         if("Fail".equals(token)){

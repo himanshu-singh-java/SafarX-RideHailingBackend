@@ -21,6 +21,9 @@ public class Users {
     @Column(columnDefinition = "varchar(50)", nullable = false)
     private Role role;
 
+    @Column(name = "provider")
+    private String provider = "LOCAL";
+
     public Users() {
     }
 
@@ -61,5 +64,13 @@ public class Users {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 }

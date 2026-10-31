@@ -29,7 +29,7 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
 
     List<Rides> findByRideStatusAndLastBroadcastAtBefore(RideStatus rideStatus, LocalDateTime cutOffTime);
 
-    @Query("SELECT r FROM Rides r WHERE r.vehicle.vehicleId = :vehicleId AND r.rideStatus IN('IN_PROGRESS', 'ACCEPTED')")
+    @Query("SELECT r FROM Rides r WHERE r.vehicle.vehicleId = :vehicleId AND r.rideStatus IN (com.ridehailing.model.RideStatus.IN_PROGRESS, com.ridehailing.model.RideStatus.ACCEPTED)")
     Optional<Rides> findActiveRideByVehicleId(@Param("vehicleId") int vehicleId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -43,7 +43,7 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
                       );
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("UPDATE Rides r SET r.fare = :fare, r.currentRadiusIndex = :radiusIndex, r.lastBroadcastAt = :broadcastTime WHERE r.rideId = :rideId AND r.rideStatus = 'REQUESTED'")
+    @Query("UPDATE Rides r SET r.fare = :fare, r.currentRadiusIndex = :radiusIndex, r.lastBroadcastAt = :broadcastTime WHERE r.rideId = :rideId AND r.rideStatus = com.ridehailing.model.RideStatus.REQUESTED")
     int updateBroadcastStateAtDB(
             @Param("rideId") int rideId,
             @Param("fare") double fare,

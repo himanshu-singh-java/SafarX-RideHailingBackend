@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,9 +20,9 @@ public class PaymentController {
     private PaymentService paymentService;
 
     @PostMapping(value = "/create-order", produces = "application/json")
-    public ResponseEntity<?> createOrder(@RequestBody PaymentRequest request) throws RazorpayException {
+    public ResponseEntity<?> createOrder(@RequestBody PaymentRequest request, Principal principal) throws RazorpayException {
 
-        String orderResponse = paymentService.createOrder(request.getRideId());
+        String orderResponse = paymentService.createOrder(request.getRideId(), principal.getName());
 
         return ResponseEntity.ok(orderResponse);
     }
@@ -31,7 +32,6 @@ public class PaymentController {
 
         boolean isAuthentic = paymentService.verifySignature(
                 request.getRideId(),
-                request.getRazorPayOrderId(),
                 request.getRazorpayPaymentId(),
                 request.getRazorpaySignatureId()
         );
