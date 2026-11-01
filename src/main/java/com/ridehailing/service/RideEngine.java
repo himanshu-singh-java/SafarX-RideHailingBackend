@@ -94,7 +94,7 @@ public class RideEngine {
     @Transactional
     public void broadcastRide(int rideId){
 
-        Rides ride = rideRepository.findById(rideId).orElse(null);
+        Rides ride = rideRepository.findByIdForUpdate(rideId).orElse(null);
 
         if(ride == null || ride.getRideStatus() != RideStatus.REQUESTED){
             return;
@@ -144,7 +144,7 @@ public class RideEngine {
                 return;
             }
 
-            ride = rideRepository.findById(rideId).orElseThrow();
+            ride = rideRepository.findByIdForUpdate(rideId).orElseThrow();
             RideResponse response = RideMapper.mapToResponse(ride);
 
             List<Integer> driversToNotify = new ArrayList<>();
@@ -167,7 +167,7 @@ public class RideEngine {
 
     @Transactional
     public void handleRideTimeout(int rideId){
-        Rides ride = rideRepository.findById(rideId).orElse(null);
+        Rides ride = rideRepository.findByIdForUpdate(rideId).orElse(null);
 
         if(ride == null || ride.getRideStatus() != RideStatus.REQUESTED){
             return;
@@ -193,7 +193,7 @@ public class RideEngine {
 
     public RideResponse startRide(int rideId, String driverEmail){
 
-        Rides ride = rideRepository.findById(rideId).
+        Rides ride = rideRepository.findByIdForUpdate(rideId).
                 orElseThrow(() -> new ResourceNotFoundException("Error: Ride not found!"));
 
         Driver loggedInDriver = driverRepository.findByUser_Email(driverEmail)
@@ -221,7 +221,7 @@ public class RideEngine {
     @Transactional
     public Rides cancelRide(int rideId, String riderEmail){
 
-        Rides ride = rideRepository.findById(rideId)
+        Rides ride = rideRepository.findByIdForUpdate(rideId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ride not found!"));
 
         if(riderEmail != null && !ride.getRider().getUsers().getEmail().equals(riderEmail)){
@@ -269,7 +269,7 @@ public class RideEngine {
             throw new RideConflictException("Error: Unauthorized! You were not notified for this ride or your vehicle type doesn't match.");
         }
 
-        Rides rideForDistance = rideRepository.findById(rideId)
+        Rides rideForDistance = rideRepository.findByIdForUpdate(rideId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ride not found!"));
 
         double finalFare = acceptingVehicle.calculateFare(rideForDistance.getDistanceKm());
@@ -296,7 +296,7 @@ public class RideEngine {
             throw new RideConflictException("Driver is not available or already on another ride.");
         }
 
-        Rides updatedRide = rideRepository.findById(rideId).get();
+        Rides updatedRide = rideRepository.findByIdForUpdate(rideId).get();
         RideResponse response = RideMapper.mapToResponse(updatedRide);
 
         messagingTemplate.convertAndSend("/topic/ride/" + rideId, response);
@@ -319,7 +319,7 @@ public class RideEngine {
     @Transactional
     public Rides completeRide(int rideId, String driverEmail){
 
-        Rides ride = rideRepository.findById(rideId)
+        Rides ride = rideRepository.findByIdForUpdate(rideId)
                 .orElseThrow(() -> new RuntimeException("Error: Ride with ID " + rideId + " not found!"));
 
         Driver loggedInDriver = driverRepository.findByUser_Email(driverEmail).orElseThrow(
@@ -374,7 +374,7 @@ public class RideEngine {
 
     public void deleteRide(int rideId) {
 
-        Rides rides = rideRepository.findById(rideId)
+        Rides rides = rideRepository.findByIdForUpdate(rideId)
                 .orElseThrow(() -> new RuntimeException("Error: Cannot delete. Ride with ID " + rideId + " not found!"));
 
         if(rides.getRideStatus() == RideStatus.ACCEPTED || rides.getRideStatus() == RideStatus.IN_PROGRESS){

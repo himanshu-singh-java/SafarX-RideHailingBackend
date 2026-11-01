@@ -2,8 +2,13 @@ package com.ridehailing.config;
 
 import com.ridehailing.exception.ForbiddenException;
 import com.ridehailing.exception.UnauthorizedException;
+import com.ridehailing.model.Driver;
+import com.ridehailing.model.Rides;
+import com.ridehailing.repository.DriverRepository;
+import com.ridehailing.repository.RideRepository;
 import com.ridehailing.service.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.messaging.Message;
@@ -34,11 +39,20 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Autowired
     private UserDetailsService userDetailsService;
 
+    @Autowired
+    private DriverRepository driverRepository;
+
+    @Autowired
+    private RideRepository rideRepository;
+
+    @Value("${frontend.url:http://localhost:5173}")
+    private String frontendBaseUrl;
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry){
 
         registry.addEndpoint("/ws-ride")
-                .setAllowedOriginPatterns("*")
+                .setAllowedOriginPatterns(frontendBaseUrl)
                 .withSockJS();
     }
 
@@ -97,16 +111,42 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
                     if(destination != null){
 
-                        if(destination.startsWith("/topic/driver/")){
-                            boolean isDriver = ((UsernamePasswordAuthenticationToken)user).getAuthorities().stream()
-                                    .anyMatch(a -> a.getAuthority().equals("ROLE_DRIVER"));
+                        try{
+                            if(destination.startsWith("/topic/driver/")){
+                                String requestedDriverId = destination.substring("/topic/driver/".length());
+                                Driver driver = driverRepository.findByUser_Email(user.getName()).orElse(null);
 
-                            if(!isDriver){
-                                throw new ForbiddenException("Only drivers can subscribe to driver topics");
+                                if(driver == null || !String.valueOf(driver.getDriverId()).equals(requestedDriverId)){
+                                    throw new ForbiddenException("Cannot subscribe to other driver's channel");
+                                }
+                            }
+                            else if (destination.startsWith("/topic/ride/")) {
+                                String requestedRideId = destination.substring("/topic/ride/".length());
+                                Rides ride = rideRepository.findById(Integer.parseInt(requestedRideId)).orElse(null);
+
+                                if(ride == null) throw new ForbiddenException("Ride not Found");
+
+                                boolean isAuthorized = false;
+                                String userEmail = user.getName();
+
+                                if(ride.getRider().getUsers().getEmail().equals(userEmail)){
+                                    isAuthorized = true;
+                                }
+                                else if (ride.getVehicle() != null && ride.getVehicle().getDriver() != null
+                                         && ride.getVehicle().getDriver().getUser().getEmail().equals(userEmail)) {
+
+                                    isAuthorized = true;
+                                }
+
+                                if(!isAuthorized){
+                                    throw new ForbiddenException("Not authorized to subscribe to this ride");
+                                }
                             }
                         }
+                        catch (NumberFormatException e){
+                            throw new ForbiddenException("Invalid ID format in subscription");
+                        }
                     }
-                    
                 }
                 return message;
             }

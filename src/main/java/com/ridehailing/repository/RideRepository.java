@@ -3,7 +3,9 @@ package com.ridehailing.repository;
 import com.ridehailing.model.RideStatus;
 import com.ridehailing.model.Rides;
 import com.ridehailing.model.Vehicles;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -50,4 +52,8 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
             @Param("radiusIndex") int radiusIndex,
             @Param("broadcastTime") LocalDateTime broadcastTime
     );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Rides r WHERE r.rideId = :id")
+    Optional<Rides> findByIdForUpdate(@Param("id") int id);
 }

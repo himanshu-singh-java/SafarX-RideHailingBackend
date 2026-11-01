@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -18,5 +19,13 @@ public interface DriverRepository extends JpaRepository<Driver, Integer> {
     int claimDriver(@Param("driverId") int driverId,
                     @Param("newStatus") VehicleStatus newStatus,
                     @Param("expectedStatus") VehicleStatus expectedStatus);
+
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Driver d SET d.currentLat = :lat, d.currentLng = :lng WHERE d.driverId = :id")
+    int updateLocation(@Param("id") int id,
+                       @Param("lat") double lat,
+                       @Param("lng") double lng
+                       );
 
 }

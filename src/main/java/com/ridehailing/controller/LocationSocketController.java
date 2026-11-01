@@ -3,7 +3,10 @@ package com.ridehailing.controller;
 import com.ridehailing.dto.DriverOnboardingRequest;
 import com.ridehailing.dto.LocationUpdateDto;
 import com.ridehailing.model.Driver;
+import com.ridehailing.model.Rides;
 import com.ridehailing.repository.DriverRepository;
+import com.ridehailing.repository.RideRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 
+@Slf4j
 @Controller
 public class LocationSocketController {
 
@@ -21,6 +25,9 @@ public class LocationSocketController {
 
     @Autowired
     private DriverRepository driverRepository;
+
+    @Autowired
+    private RideRepository rideRepository;
 
     @MessageMapping("/update-location")
     public void receiveAndForwardLocation(@Payload LocationUpdateDto location, SimpMessageHeaderAccessor headerAccessor){
@@ -31,8 +38,8 @@ public class LocationSocketController {
             System.out.println("Unauthorized WebSocket Location Update Attempt Blocked!");
             return;
         }
-        String driverEmail = principal.getName();
 
+        String driverEmail = principal.getName();
         Driver verifiedDriver = driverRepository.findByUser_Email(driverEmail).orElse(null);
 
         if(verifiedDriver == null){
@@ -40,9 +47,16 @@ public class LocationSocketController {
             return;
         }
 
-        verifiedDriver.setCurrentLat(location.getLatitude());
-        verifiedDriver.setCurrentLng(location.getLongitude());
-        driverRepository.save(verifiedDriver);
+        Rides ride = rideRepository.findById(location.getRideId()).orElse(null);
+        if(ride == null || ride.getVehicle() == null || ride.getVehicle().getDriver() == null
+        || ride.getVehicle().getDriver().getDriverId() != verifiedDriver.getDriverId()){
+            log.info("Unauthorized location update attempt for ride: " + location.getRideId());
+            return;
+        }
+
+        driverRepository.updateLocation(verifiedDriver.getDriverId(),
+                                        location.getLatitude(),
+                                        location.getLongitude());
 
         location.setDriverId(verifiedDriver.getDriverId());
 

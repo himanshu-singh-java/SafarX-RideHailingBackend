@@ -38,8 +38,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/driver/onboard").permitAll()
                         .requestMatchers("/api/rider/**", "/api/rides/book", "/api/rides/history/**", "/api/rides/cancel/**", "/api/payment/**").hasRole("RIDER")
-                        .requestMatchers("/api/driver/**", "/api/rides/accept/**", "/api/rides/complete/**", "/api/vehicles/complete-ride/**").hasRole("DRIVER")
-                        .requestMatchers("/api/rides/all", "/api/rides/delete/**").hasRole("ADMIN")
+
+                        .requestMatchers("/api/driver/**", "/api/rides/accept/**", "/api/rides/complete/**").hasRole("DRIVER")
+                        .requestMatchers("/api/rides/all", "/api/rides/delete/**", "/api/vehicles/complete-ride/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2.successHandler(oAuth2SuccessHandler))
