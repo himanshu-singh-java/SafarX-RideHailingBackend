@@ -12,6 +12,7 @@ import com.ridehailing.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ridehailing.util.LocationUtils;
@@ -167,8 +168,15 @@ public class RideEngine {
 
     @Transactional
     public void handleRideTimeout(int rideId){
-        Rides ride = rideRepository.findByIdForUpdate(rideId).orElse(null);
 
+        LocalDateTime now = LocalDateTime.now();
+        int updated = rideRepository.incrementRadiusAndClaimTimeout(rideId, now);
+
+        if(updated == 0){
+            return;
+        }
+
+        Rides ride = rideRepository.findByIdForUpdate(rideId).orElse(null);
         if(ride == null || ride.getRideStatus() != RideStatus.REQUESTED){
             return;
         }
@@ -176,13 +184,15 @@ public class RideEngine {
         log.info("Timeout for ride {} at radius index {}. Expanding radius.", rideId, ride.getCurrentRadiusIndex());
 
         List<RideNotifiedDriver> notifiedDrivers = rideNotifiedDriverRepository.findByRideId(rideId);
-
-        Map<String, Object> timeoutEvent = new HashMap<>();
-        timeoutEvent.put("type", "TIMEOUT");
-        timeoutEvent.put("rideId", rideId);
+        Map<String, Object> timeoutEvent = Map.of("type", "TIMEOUT", "rideId", rideId);
 
         for(RideNotifiedDriver skipped : notifiedDrivers){
             messagingTemplate.convertAndSend("/topic/driver/" + skipped.getDriverId(), timeoutEvent);
+        }
+
+        if(ride.getCurrentRadiusIndex() >= SEARCH_RADII.length){
+            cancelRide(rideId);
+            return;
         }
 
         ride.setCurrentRadiusIndex(ride.getCurrentRadiusIndex() + 1);
@@ -241,6 +251,13 @@ public class RideEngine {
         ride.setRideStatus(RideStatus.CANCELLED);
         Rides cancelledRide = rideRepository.save(ride);
 
+        List<RideNotifiedDriver> notifiedDrivers = rideNotifiedDriverRepository.findByRideId(rideId);
+        Map<String, Object> cancelEvent = Map.of("type", "RIDE_CANCELLED", "rideId", rideId);
+
+        for(RideNotifiedDriver nd : notifiedDrivers){
+            messagingTemplate.convertAndSend("/topic/driver/" + nd.getDriverId(), cancelEvent);
+        }
+
         messagingTemplate.convertAndSend("/topic/ride/" + rideId, RideMapper.mapToResponse(cancelledRide));
         return cancelledRide;
     }
@@ -279,7 +296,8 @@ public class RideEngine {
                 acceptingVehicle,
                 finalFare,
                 RideStatus.ACCEPTED,
-                RideStatus.REQUESTED
+                RideStatus.REQUESTED,
+                LocalDateTime.now()
         );
 
         if(rideClaimed != 1){
@@ -320,7 +338,7 @@ public class RideEngine {
     public Rides completeRide(int rideId, String driverEmail){
 
         Rides ride = rideRepository.findByIdForUpdate(rideId)
-                .orElseThrow(() -> new RuntimeException("Error: Ride with ID " + rideId + " not found!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Error: Ride with ID " + rideId + " not found!"));
 
         Driver loggedInDriver = driverRepository.findByUser_Email(driverEmail).orElseThrow(
                 () -> new ResourceNotFoundException("Error: Driver profile not found!"
@@ -332,11 +350,11 @@ public class RideEngine {
         }
 
         if(ride.getRideStatus() == RideStatus.COMPLETED){
-            throw new RuntimeException("This ride is already marked as COMPLETED.");
+            throw new RideConflictException("This ride is already marked as COMPLETED.");
         }
 
-        if(ride.getRideStatus() != RideStatus.ACCEPTED && ride.getRideStatus() != RideStatus.IN_PROGRESS){
-            throw new RideConflictException("Error: Cannot complete a ride with status " + ride.getRideStatus());
+        if(ride.getRideStatus() != RideStatus.IN_PROGRESS){
+            throw new RideConflictException("Error: Ride must be IN_PROGRESS to complete. Current state: " + ride.getRideStatus());
         }
 
         ride.setRideStatus(RideStatus.COMPLETED);
@@ -363,7 +381,7 @@ public class RideEngine {
     public List<Rides> getRideHistory(int riderId, String riderEmail){
 
         Riders rider = riderRepository.findById(riderId)
-                .orElseThrow(() -> new RuntimeException("Error: Rider with ID " + riderId + " not found!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Error: Rider with ID " + riderId + " not found!"));
 
         if(!rider.getUsers().getEmail().equals(riderEmail)){
             throw new ForbiddenException("Error: Unauthorized! You can only view your own ride history.");
@@ -375,7 +393,7 @@ public class RideEngine {
     public void deleteRide(int rideId) {
 
         Rides rides = rideRepository.findByIdForUpdate(rideId)
-                .orElseThrow(() -> new RuntimeException("Error: Cannot delete. Ride with ID " + rideId + " not found!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Error: Cannot delete. Ride with ID " + rideId + " not found!"));
 
         if(rides.getRideStatus() == RideStatus.ACCEPTED || rides.getRideStatus() == RideStatus.IN_PROGRESS){
             Vehicles vehicles = rides.getVehicle();

@@ -4,6 +4,7 @@ import com.ridehailing.dto.ProfileCompletionRequest;
 import com.ridehailing.dto.UserRegistrationRequest;
 import com.ridehailing.exception.ForbiddenException;
 import com.ridehailing.exception.ResourceNotFoundException;
+import com.ridehailing.exception.RideConflictException;
 import com.ridehailing.model.*;
 import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.RiderRepository;
@@ -39,10 +40,13 @@ public class UserService {
 
     public Users register(UserRegistrationRequest request) {
 
+        if(userRepository.findByEmail(request.getEmail()).isPresent()){
+            throw new RideConflictException("Error: Email is already registered!");
+        }
+
         Users newUser = new Users();
         newUser.setEmail(request.getEmail());
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
-
         newUser.setRole(Role.ROLE_RIDER);
 
         return userRepository.save(newUser);
@@ -73,6 +77,13 @@ public class UserService {
 
         Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: User not found in database!"));
+
+        boolean isAlreadyRider = riderRepository.findByUsers_Email(email).isPresent();
+        boolean isAlreadyDriver = driverRepository.findByUser_Email(email).isPresent();
+
+        if(isAlreadyDriver || isAlreadyRider){
+            throw new ForbiddenException("Error: Profile already completed! Role cannot be changed once set.");
+        }
 
         String requestedRole = request.getRole().toUpperCase();
 

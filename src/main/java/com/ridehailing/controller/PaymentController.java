@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5173")
 @RequestMapping("/api/payment")
 public class PaymentController {
 
@@ -28,16 +27,17 @@ public class PaymentController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<?> verifyPayment(@RequestBody PaymentRequest request){
+    public ResponseEntity<?> verifyPayment(@RequestBody PaymentRequest request, Principal principal){
 
         boolean isAuthentic = paymentService.verifySignature(
                 request.getRideId(),
                 request.getRazorpayPaymentId(),
-                request.getRazorpaySignatureId()
+                request.getRazorpaySignatureId(),
+                principal.getName()
         );
 
         if(!isAuthentic){
-            throw  new RuntimeException("Error: Invalid payment signature! Possible tampering detected.");
+            throw new IllegalArgumentException("Error: Invalid payment signature! Possible tampering detected.");
         }
 
         Map<String, String > response = new HashMap<>();

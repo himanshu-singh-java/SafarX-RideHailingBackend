@@ -36,12 +36,13 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Rides r SET r.rideStatus = :acceptedStatus, r.vehicle = :vehicle, r.fare = :fare, " +
-            " r.startTime = CURRENT_TIMESTAMP WHERE r.rideId = :id AND r.rideStatus = :requestedStatus")
+            " r.startTime = :now WHERE r.rideId = :id AND r.rideStatus = :requestedStatus")
     int claimRideAtDB(@Param("id") int id,
                       @Param("vehicle")Vehicles vehicle,
                       @Param("fare") double fare,
                       @Param("acceptedStatus") RideStatus acceptedStatus,
-                      @Param("requestedStatus") RideStatus requestedStatus
+                      @Param("requestedStatus") RideStatus requestedStatus,
+                      @Param("now") LocalDateTime now
                       );
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
@@ -56,4 +57,11 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM Rides r WHERE r.rideId = :id")
     Optional<Rides> findByIdForUpdate(@Param("id") int id);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Rides r SET r.currentRadiusIndex = r.currentRadiusIndex + 1, r.lastBroadcastAt = :now " +
+    "WHERE r.rideId = :rideId AND r.rideStatus = com.ridehailing.model.RideStatus.REQUESTED")
+    int incrementRadiusAndClaimTimeout(@Param("rideId") int rideId,
+                                       @Param("now") LocalDateTime now
+                                       );
 }

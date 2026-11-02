@@ -7,6 +7,7 @@ import com.razorpay.Utils;
 import com.ridehailing.exception.ForbiddenException;
 import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.exception.RideConflictException;
+import com.ridehailing.model.RideStatus;
 import com.ridehailing.model.Rides;
 import com.ridehailing.repository.RideRepository;
 import org.json.JSONObject;
@@ -33,16 +34,29 @@ public class PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Error: Ride not found!"));
 
         if(!ride.getRider().getUsers().getEmail().equals(riderEmail)){
-            throw new ForbiddenException("\"Error: Unauthorized! You can only pay for your own rides.\"");
+            throw new ForbiddenException("Error: Unauthorized! You can only pay for your own rides.");
         }
 
-        if(ride.getPaymentStatus().equals("PAID")){
+        if(ride.getRideStatus() != RideStatus.COMPLETED){
+            throw new RideConflictException("Error: Payment can only be initiated for COMPLETED rides. Current status: " + ride.getRideStatus());
+        }
+
+        if("PAID".equals(ride.getPaymentStatus())){
             throw new RideConflictException("Error: This ride is already paid.");
         }
 
-        double actualAmount = ride.getFare();
+        Double actualAmount = ride.getFare();
+
+        if(actualAmount == null || actualAmount <= 0){
+            throw new IllegalArgumentException("Error: Invalid fare amount for this ride.");
+        }
 
         RazorpayClient client = new RazorpayClient(keyId, keySecret);
+
+        if(ride.getRazorPayOrderId() != null && !ride.getRazorPayOrderId().isBlank()){
+            Order existingOrder = client.orders.fetch(ride.getRazorPayOrderId());
+            return  existingOrder.toString();
+        }
 
         JSONObject orderRequest = new JSONObject();
         orderRequest.put("amount", (int) Math.round(actualAmount * 100));
@@ -59,13 +73,17 @@ public class PaymentService {
     }
 
     @Transactional
-    public boolean verifySignature(int rideId, String paymentId, String signature){
+    public boolean verifySignature(int rideId, String paymentId, String signature, String riderEmail){
         try{
 
             Rides ride = rideRepository.findById(rideId).
                     orElseThrow(() -> new ResourceNotFoundException("Error: Ride not found!"));
 
-            if(ride.getPaymentStatus().equals("PAID")){
+            if(!ride.getRider().getUsers().getEmail().equals(riderEmail)){
+                throw new ForbiddenException("Error: Unauthorized! You can only verify payment for your own rides.");
+            }
+
+            if("PAID".equals(ride.getPaymentStatus())){
                 return true;
             }
 
