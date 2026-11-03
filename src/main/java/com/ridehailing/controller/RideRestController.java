@@ -66,6 +66,12 @@ public class RideRestController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/start/{rideId}")
+    public ResponseEntity<?> startRide(@PathVariable int rideId, Principal principal) {
+        String driverEmail = principal.getName();
+        return ResponseEntity.ok(rideEngine.startRide(rideId, driverEmail));
+    }
+
     @PutMapping("/complete/{rideId}")
     public ResponseEntity<?> completeRide(@PathVariable int rideId, Principal principal){
 

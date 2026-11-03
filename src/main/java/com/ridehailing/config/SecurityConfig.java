@@ -39,7 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/driver/onboard").permitAll()
                         .requestMatchers("/api/rider/**", "/api/rides/book", "/api/rides/history/**", "/api/rides/cancel/**", "/api/payment/**").hasRole("RIDER")
 
-                        .requestMatchers("/api/driver/**", "/api/rides/accept/**", "/api/rides/complete/**").hasRole("DRIVER")
+                        .requestMatchers("/api/driver/**", "/api/rides/accept/**", "/api/rides/start/**","/api/rides/complete/**").hasRole("DRIVER")
                         .requestMatchers("/api/rides/all", "/api/rides/delete/**", "/api/vehicles/complete-ride/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
