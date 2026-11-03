@@ -10,9 +10,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WebSocketAuthService {
 
-    private DriverRepository driverRepository;
+    private final DriverRepository driverRepository;
 
-    private RideRepository rideRepository;
+    private final RideRepository rideRepository;
+
+    public WebSocketAuthService(DriverRepository driverRepository, RideRepository rideRepository){
+        this.driverRepository = driverRepository;
+        this.rideRepository = rideRepository;
+    }
 
     @Transactional(readOnly = true)
     public boolean canSubscribeToDriver(String email, String requestedDriverId){

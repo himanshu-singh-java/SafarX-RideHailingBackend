@@ -61,7 +61,7 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Rides r SET r.currentRadiusIndex = r.currentRadiusIndex + 1, r.lastBroadcastAt = :now " +
-            "WHERE r.rideId = :rideId AND r.rideStatus = com.ridehailing.model.RideStatus.REQUESTED " + // 🛠️ YAHAN SPACE LAGA DIYA HAI
+            "WHERE r.rideId = :rideId AND r.rideStatus = com.ridehailing.model.RideStatus.REQUESTED " +
             "AND r.lastBroadcastAt <= :cutoff")
     int incrementRadiusAndClaimTimeout(@Param("rideId") int rideId,
                                        @Param("now") LocalDateTime now,

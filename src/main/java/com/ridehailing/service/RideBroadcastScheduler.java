@@ -25,7 +25,7 @@ public class RideBroadcastScheduler {
 
     @Scheduled(fixedDelay = 5000)
     public void processTimedOutRides(){
-        LocalDateTime cutOffTime = LocalDateTime.now().minusSeconds(20);
+        LocalDateTime cutOffTime = LocalDateTime.now().minusSeconds(RideEngine.WAVE_TIMEOUT_SECONDS);
 
         List<Rides> timedOutRides = rideRepository.findByRideStatusAndLastBroadcastAtBefore(
                 RideStatus.REQUESTED, cutOffTime

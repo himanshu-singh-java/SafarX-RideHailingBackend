@@ -73,7 +73,7 @@ public class DriverService {
                 break;
 
             default:
-                throw new ResourceNotFoundException("Error: Invalid Vehicle Type provided!");
+                throw new IllegalArgumentException("Error: Invalid Vehicle Type provided!");
         }
         vehicle.setDriver(driver);
         return vehicle;
