@@ -58,10 +58,13 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
     @Query("SELECT r FROM Rides r WHERE r.rideId = :id")
     Optional<Rides> findByIdForUpdate(@Param("id") int id);
 
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Rides r SET r.currentRadiusIndex = r.currentRadiusIndex + 1, r.lastBroadcastAt = :now " +
-    "WHERE r.rideId = :rideId AND r.rideStatus = com.ridehailing.model.RideStatus.REQUESTED")
+            "WHERE r.rideId = :rideId AND r.rideStatus = com.ridehailing.model.RideStatus.REQUESTED " + // 🛠️ YAHAN SPACE LAGA DIYA HAI
+            "AND r.lastBroadcastAt <= :cutoff")
     int incrementRadiusAndClaimTimeout(@Param("rideId") int rideId,
-                                       @Param("now") LocalDateTime now
+                                       @Param("now") LocalDateTime now,
+                                       @Param("cutoff") LocalDateTime cuttoff
                                        );
 }

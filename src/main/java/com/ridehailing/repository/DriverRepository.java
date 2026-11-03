@@ -28,4 +28,12 @@ public interface DriverRepository extends JpaRepository<Driver, Integer> {
                        @Param("lng") double lng
                        );
 
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Driver d SET d.driverStatus = :s WHERE d.driverId = :id AND d.driverStatus <> com.ridehailing.model.VehicleStatus.ON_RIDE")
+    int updateStatusIfNotOnRide(@Param("id") int id,
+                                @Param("s") VehicleStatus s);
+
+
+
 }

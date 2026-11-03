@@ -170,7 +170,8 @@ public class RideEngine {
     public void handleRideTimeout(int rideId){
 
         LocalDateTime now = LocalDateTime.now();
-        int updated = rideRepository.incrementRadiusAndClaimTimeout(rideId, now);
+        LocalDateTime cutoff = now.minusSeconds(30);
+        int updated = rideRepository.incrementRadiusAndClaimTimeout(rideId, now, cutoff);
 
         if(updated == 0){
             return;
@@ -194,9 +195,6 @@ public class RideEngine {
             cancelRide(rideId);
             return;
         }
-
-        ride.setCurrentRadiusIndex(ride.getCurrentRadiusIndex() + 1);
-        rideRepository.save(ride);
 
         broadcastRide(rideId);
     }
@@ -288,6 +286,10 @@ public class RideEngine {
 
         Rides rideForDistance = rideRepository.findByIdForUpdate(rideId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ride not found!"));
+
+        if(rideForDistance.getRideStatus() == RideStatus.CANCELLED){
+            throw new RideConflictException("Sorry, this ride has been cancelled by the rider.");
+        }
 
         double finalFare = acceptingVehicle.calculateFare(rideForDistance.getDistanceKm());
 

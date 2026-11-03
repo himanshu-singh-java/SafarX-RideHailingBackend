@@ -2,6 +2,7 @@ package com.ridehailing.controller;
 
 import com.ridehailing.dto.DriverOnboardingRequest;
 import com.ridehailing.exception.ResourceNotFoundException;
+import com.ridehailing.exception.RideConflictException;
 import com.ridehailing.model.Driver;
 import com.ridehailing.model.VehicleStatus;
 import com.ridehailing.model.Vehicles;
@@ -9,9 +10,11 @@ import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.VehicleRepository;
 import com.ridehailing.service.DriverService;
 import com.ridehailing.service.JwtService;
+import jakarta.persistence.Table;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -48,10 +51,15 @@ public class DriverController {
         ));
     }
 
+    @Transactional
     @PostMapping("/vehicle")
     public ResponseEntity<?> registerVehicle(@RequestBody DriverOnboardingRequest request, Principal principal){
         Driver driver = driverRepository.findByUser_Email(principal.getName()).
                 orElseThrow(() -> new ResourceNotFoundException("Driver profile not found"));
+
+        if(driver.getVehicle() != null){
+            throw new RideConflictException("Vehicle is already registered for this driver.");
+        }
 
         Vehicles vehicle;
         String type = request.getVehicleType().toUpperCase();
@@ -70,26 +78,32 @@ public class DriverController {
         }
 
         vehicle.setPlateNumber(request.getPlateNumber());
-        vehicle.setDriver(driver);
-        vehicleRepository.save(vehicle);
 
-        driver.setDriverStatus(VehicleStatus.AVAILABLE);
-        driverRepository.save(driver);
+        vehicle.setDriver(driver);
+        driver.setVehicle(vehicle);
+
+        vehicleRepository.save(vehicle);
+        driverRepository.updateStatusIfNotOnRide(driver.getDriverId(), VehicleStatus.AVAILABLE);
 
         return ResponseEntity.ok(Map.of("message", "Vehicle registered successfully and driver is now AVAILABLE!"));
     }
 
+    @Transactional
     @PatchMapping("/status")
     public ResponseEntity<?> updateStatus(@RequestParam VehicleStatus status, Principal principal){
+        if(status ==  VehicleStatus.ON_RIDE){
+            throw new IllegalArgumentException("Cannot manually set status to ON_RIDE.");
+        }
+
         Driver driver = driverRepository.findByUser_Email(principal.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Driver profile not found"));
 
-        if(driver.getDriverStatus() == VehicleStatus.ON_RIDE){
+        int updated = driverRepository.updateStatusIfNotOnRide(driver.getDriverId(), status);
+
+        if(updated == 0){
             return ResponseEntity.badRequest().body(Map.of("message", "Cannot change status while on an active ride."));
         }
 
-        driver.setDriverStatus(status);
-        driverRepository.save(driver);
         return ResponseEntity.ok(Map.of("message", "Driver status updated to " + status));
     }
 }

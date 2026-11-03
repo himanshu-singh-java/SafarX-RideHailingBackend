@@ -47,23 +47,23 @@ public class LocationSocketController {
             return;
         }
 
-        Rides ride = rideRepository.findById(location.getRideId()).orElse(null);
-        if(ride == null || ride.getVehicle() == null || ride.getVehicle().getDriver() == null
-        || ride.getVehicle().getDriver().getDriverId() != verifiedDriver.getDriverId()){
-            log.info("Unauthorized location update attempt for ride: " + location.getRideId());
-            return;
-        }
-
         driverRepository.updateLocation(verifiedDriver.getDriverId(),
                                         location.getLatitude(),
                                         location.getLongitude());
 
-        location.setDriverId(verifiedDriver.getDriverId());
+        if(location.getRideId() > 0) {
 
-        System.out.println("Driver " + location.getDriverId() + " is at: " + location.getLatitude());
+            Rides newRide = rideRepository.findById(location.getRideId()).orElse(null);
 
-        String destination = "/topic/ride/" + location.getRideId();
+            if (newRide == null || newRide.getVehicle() == null || newRide.getVehicle().getDriver() == null
+                    || newRide.getVehicle().getDriver().getDriverId() != verifiedDriver.getDriverId()) {
 
-        messagingTemplate.convertAndSend(destination, location);
+                log.info("Unauthorized location update attempt for ride: " + location.getRideId());
+                return;
+            }
+            location.setDriverId(verifiedDriver.getDriverId());
+            String destination = "/topic/ride/" + location.getRideId();
+            messagingTemplate.convertAndSend(destination, location);
+        }
     }
 }

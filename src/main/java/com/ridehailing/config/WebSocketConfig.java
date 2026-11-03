@@ -23,6 +23,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.config.annotation.web.oauth2.resourceserver.OAuth2ResourceServerSecurityMarker;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -67,9 +68,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureClientInboundChannel(ChannelRegistration registration) {
 
         registration.interceptors(new ChannelInterceptor() {
-            @Override
-            public Message<?> preSend(Message<?> message, MessageChannel channel) {
 
+            @Override
+            @Transactional(readOnly = true)
+            public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
                 if(accessor == null){
@@ -100,6 +102,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                     } else {
                         throw new UnauthorizedException("Error: Missing or invalid Authorization header in WebSocket CONNECT!");
                     }
+                } else if (StompCommand.SEND.equals(accessor.getCommand())) {
+                    String destination = accessor.getDestination();
+                    if(destination != null && destination.startsWith("/topic/")){
+                        throw new ForbiddenException("Direct SEND to broker is blocked. Use /app/ routes.");
+                    }
                 } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
                     Principal user = accessor.getUser();
 
@@ -110,7 +117,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                     String destination = accessor.getDestination();
 
                     if(destination != null){
-
+                        if(destination != null){
+                            if(!destination.matches("^/topic/(ride|driver)/\\d+$")){
+                                throw new ForbiddenException("Invalid subscription destination pattern. Wildcards blocked.");
+                            }
+                        }
                         try{
                             if(destination.startsWith("/topic/driver/")){
                                 String requestedDriverId = destination.substring("/topic/driver/".length());
