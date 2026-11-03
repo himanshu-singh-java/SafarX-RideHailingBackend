@@ -3,6 +3,7 @@ package com.ridehailing.controller;
 import com.ridehailing.dto.DriverOnboardingRequest;
 import com.ridehailing.dto.LocationUpdateDto;
 import com.ridehailing.model.Driver;
+import com.ridehailing.model.RideStatus;
 import com.ridehailing.model.Rides;
 import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.RideRepository;
@@ -61,6 +62,11 @@ public class LocationSocketController {
                 log.info("Unauthorized location update attempt for ride: " + location.getRideId());
                 return;
             }
+
+            if(newRide.getRideStatus() != RideStatus.IN_PROGRESS && newRide.getRideStatus() != RideStatus.ACCEPTED){
+                return;
+            }
+
             location.setDriverId(verifiedDriver.getDriverId());
             String destination = "/topic/ride/" + location.getRideId();
             messagingTemplate.convertAndSend(destination, location);

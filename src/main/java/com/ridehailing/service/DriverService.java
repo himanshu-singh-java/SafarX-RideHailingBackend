@@ -28,6 +28,57 @@ public class DriverService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+
+    public Vehicles buildVehicle(DriverOnboardingRequest request, Driver driver){
+        if(request.getVehicleType() == null){
+            throw new IllegalArgumentException("Vehicle type cannot be null");
+        }
+
+        String type = request.getVehicleType().toUpperCase();
+        Vehicles vehicle = null;
+
+        switch (type){
+
+            case "CAR":
+                Car car = new Car();
+                car.setPlateNumber(request.getPlateNumber());
+                car.setCarModel(request.getCarModel());
+                car.setCarCategory(request.getCarCategory());
+                car.setPassengerCapacity(request.getCarPassengerCapacity() != null ? request.getCarPassengerCapacity() : 4);
+                car.setIsAcAvailable(request.getIsAcAvailable() != null ? request.getIsAcAvailable() : false);
+                car.setHasLuggageCarrier(request.getHasLuggageCarrier() != null ? request.getHasLuggageCarrier() : false);
+                car.setHasWifiOrScreen(request.getHasWifiOrScreen() != null ? request.getHasWifiOrScreen() : false);
+                vehicle = car;
+                break;
+
+            case "BIKE":
+                Bike bike = new Bike();
+                bike.setPlateNumber(request.getPlateNumber());
+                bike.setBikeModel(request.getBikeModel());
+                bike.setBikeType(request.getBikeType());
+                bike.setPassengerCapacity(1);
+                bike.setHasExtraHelmet(request.getHasExtraHelmet() != null ? request.getHasExtraHelmet() : false);
+                bike.setIsParcelDeliveryEnabled(request.getIsParcelDeliveryEnabled() != null ? request.getIsParcelDeliveryEnabled() : false);
+                vehicle = bike;
+                break;
+
+            case "AUTO":
+                Auto auto = new Auto();
+                auto.setPlateNumber(request.getPlateNumber());
+                auto.setAutoModel(request.getAutoModel());
+                auto.setPermitType(request.getPermitType());
+                auto.setPassengerCapacity(request.getAutoPassengerCapacity() != null ? request.getAutoPassengerCapacity() : 3);
+                auto.setIsSharedAuto(request.getIsSharedAuto() != null ? request.getIsSharedAuto() : false);
+                vehicle = auto;
+                break;
+
+            default:
+                throw new ResourceNotFoundException("Error: Invalid Vehicle Type provided!");
+        }
+        vehicle.setDriver(driver);
+        return vehicle;
+    }
+
     @Transactional
     public Driver onBoardDriver(DriverOnboardingRequest request){
 
@@ -43,57 +94,17 @@ public class DriverService {
         user.setRole(Role.ROLE_DRIVER);
         user = userRepository.save(user);
 
-        Vehicles vehicle = null;
-
-        String type = request.getVehicleType().toUpperCase();
-
-        switch (type){
-
-            case "CAR":
-                Car car = new Car();
-                car.setPlateNumber(request.getPlateNumber());
-                car.setCarModel(request.getCarModel());
-                car.setCarCategory(request.getCarCategory());
-                car.setPassengerCapacity(request.getCarPassengerCapacity() != null ? request.getCarPassengerCapacity() : 4);
-                car.setIsAcAvailable(request.getIsAcAvailable() != null ? request.getIsAcAvailable() : false);
-                car.setHasLuggageCarrier(request.getHasLuggageCarrier() != null ? request.getHasLuggageCarrier() : false);
-                car.setHasWifiOrScreen(request.getHasWifiOrScreen() != null ? request.getHasWifiOrScreen() : false);
-                vehicle = vehicleRepository.save(car);
-                break;
-
-            case "BIKE":
-                Bike bike = new Bike();
-                bike.setPlateNumber(request.getPlateNumber());
-                bike.setBikeModel(request.getBikeModel());
-                bike.setBikeType(request.getBikeType());
-                bike.setPassengerCapacity(1);
-                bike.setHasExtraHelmet(request.getHasExtraHelmet() != null ? request.getHasExtraHelmet() : false);
-                bike.setIsParcelDeliveryEnabled(request.getIsParcelDeliveryEnabled() != null ? request.getIsParcelDeliveryEnabled() : false);
-                vehicle = vehicleRepository.save(bike);
-                break;
-
-            case "AUTO":
-                Auto auto = new Auto();
-                auto.setPlateNumber(request.getPlateNumber());
-                auto.setAutoModel(request.getAutoModel());
-                auto.setPermitType(request.getPermitType());
-                auto.setPassengerCapacity(request.getAutoPassengerCapacity() != null ? request.getAutoPassengerCapacity() : 3);
-                auto.setIsSharedAuto(request.getIsSharedAuto() != null ? request.getIsSharedAuto() : false);
-                vehicle = vehicleRepository.save(auto);
-                break;
-
-            default:
-                throw new ResourceNotFoundException("Error: Invalid Vehicle Type provided!");
-        }
-
         Driver driver = new Driver();
         driver.setUser(user);
-        driver.setVehicle(vehicle);
         driver.setDriverName(request.getFullName());
         driver.setRating(5.0);
         driver.setCurrentLat(request.getLatitude() != null ? request.getLatitude() : 17.3850);
         driver.setCurrentLng(request.getLongitude() != null ? request.getLongitude() : 78.4867);
         driver.setDriverStatus(VehicleStatus.AVAILABLE);
+
+        Vehicles vehicle = buildVehicle(request, driver);
+        vehicle = vehicleRepository.save(vehicle);
+        driver.setVehicle(vehicle);
 
         return driverRepository.save(driver);
     }

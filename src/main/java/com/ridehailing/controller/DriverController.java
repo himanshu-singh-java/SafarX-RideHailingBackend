@@ -61,28 +61,11 @@ public class DriverController {
             throw new RideConflictException("Vehicle is already registered for this driver.");
         }
 
-        Vehicles vehicle;
-        String type = request.getVehicleType().toUpperCase();
-        switch (type){
-            case "CAR":
-                vehicle = new com.ridehailing.model.Car();
-                break;
-            case "BIKE":
-                vehicle = new com.ridehailing.model.Bike();
-                break;
-            case "AUTO":
-                vehicle = new com.ridehailing.model.Auto();
-                break;
-            default:
-                throw new IllegalArgumentException("Invalid vehicle type");
-        }
-
-        vehicle.setPlateNumber(request.getPlateNumber());
-
-        vehicle.setDriver(driver);
+        Vehicles vehicle = driverService.buildVehicle(request, driver);
         driver.setVehicle(vehicle);
 
         vehicleRepository.save(vehicle);
+
         driverRepository.updateStatusIfNotOnRide(driver.getDriverId(), VehicleStatus.AVAILABLE);
 
         return ResponseEntity.ok(Map.of("message", "Vehicle registered successfully and driver is now AVAILABLE!"));

@@ -1,14 +1,15 @@
 package com.ridehailing.exception;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.messaging.handler.annotation.support.MethodArgumentTypeMismatchException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
@@ -34,8 +35,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<?> handleIllegalArgumentException(IllegalArgumentException ex){
-        return  buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
+    public ResponseEntity<?> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ForbiddenException.class)
@@ -44,13 +45,13 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<?> handleDataIntegrityViolation(DataIntegrityViolationException ex){
+    public ResponseEntity<?> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         log.warn("Database integrity violation: {}", ex.getMessage());
         return buildErrorResponse("Error: Database conflict or duplicate entry detected.", HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<?> handleSpringExceptions(Exception ex){
+    public ResponseEntity<?> handleSpringExceptions(Exception ex) {
         return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
@@ -70,16 +71,15 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGlobalException(Exception ex) {
+    public ResponseEntity<?> handleGlobalException(Exception ex) {
         log.error("CRITICAL UNHANDLED EXCEPTION: ", ex);
-
         Map<String, String> body = new HashMap<>();
         body.put("message", "An unexpected internal server error occurred.");
         body.put("error", "Internal Server Error");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
-    private ResponseEntity<?> buildErrorResponse(String message, HttpStatus status){
+    private ResponseEntity<?> buildErrorResponse(String message, HttpStatus status) {
         Map<String, String> body = new HashMap<>();
         body.put("message", message);
         body.put("error", status.getReasonPhrase());

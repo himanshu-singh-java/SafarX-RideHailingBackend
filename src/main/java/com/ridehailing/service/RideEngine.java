@@ -36,6 +36,7 @@ public class RideEngine {
     private ApplicationEventPublisher publisher;
 
     private final int[] SEARCH_RADII = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    public static final int WAVE_TIMEOUT_SECONDS = 20;
 
     @Autowired
     public RideEngine(VehicleRepository vehicleRepository,
@@ -170,7 +171,7 @@ public class RideEngine {
     public void handleRideTimeout(int rideId){
 
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime cutoff = now.minusSeconds(30);
+        LocalDateTime cutoff = now.minusSeconds(WAVE_TIMEOUT_SECONDS);
         int updated = rideRepository.incrementRadiusAndClaimTimeout(rideId, now, cutoff);
 
         if(updated == 0){
