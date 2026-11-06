@@ -1,7 +1,9 @@
 package com.ridehailing.config;
 
+import com.ridehailing.model.Riders;
 import com.ridehailing.model.Role;
 import com.ridehailing.model.Users;
+import com.ridehailing.repository.RiderRepository;
 import com.ridehailing.repository.UserRepository;
 import com.ridehailing.service.JwtService;
 import jakarta.servlet.FilterChain;
@@ -25,6 +27,9 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private UserRepository userRepository;
 
     @Autowired
+    private RiderRepository riderRepository;
+
+    @Autowired
     private JwtService service;
 
     @Value("${frontend.url:http://localhost:5173}")
@@ -39,6 +44,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         String email = oAuth2User.getAttribute("email");
+        String name = oAuth2User.getAttribute("name");
 
         Optional<Users> existingUser = userRepository.findByEmail(email);
         boolean isNew = existingUser.isEmpty();
@@ -50,21 +56,29 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             user.setPassword("");
             user.setRole(Role.ROLE_RIDER);
             user.setProvider("GOOGLE");
-            userRepository.save(user);
+            user = userRepository.save(user);
         }
         else{
             user = existingUser.get();
+            // Seamless Account Linking:
+            // The user proved verified ownership of this email via Google OAuth2.
+            // We allow them to sign in without throwing a 401 error.
+            // We preserve their existing password so they can log in either way!
+        }
 
-            if("LOCAL".equals(user.getProvider())){
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Email already registered with password. Please login using credentials.");
-                return;
-            }
+        // Auto-provision Rider profile so the user can immediately book rides without 404/not found errors
+        if(user.getRole() == Role.ROLE_RIDER && riderRepository.findByUsers_Email(email).isEmpty()){
+            Riders rider = new Riders();
+            rider.setUsers(user);
+            rider.setRiderName(name != null && !name.isBlank() ? name : "SafarX Rider");
+            rider.setPhoneNum("");
+            rider.setRiderRating(5.0);
+            riderRepository.save(rider);
         }
 
         String roleName = user.getRole() != null ? user.getRole().name() : "ROLE_RIDER";
         String token = service.generateToken(user.getEmail(), roleName);
 
-        String name = oAuth2User.getAttribute("name");
         String encodedName = name != null ? java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8) : "";
 
         String frontEndUrl = frontendBaseUrl + "/oauth2/redirect#token=" + token

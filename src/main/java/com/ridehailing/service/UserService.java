@@ -81,11 +81,29 @@ public class UserService {
         boolean isAlreadyRider = riderRepository.findByUsers_Email(email).isPresent();
         boolean isAlreadyDriver = driverRepository.findByUser_Email(email).isPresent();
 
-        if(isAlreadyDriver || isAlreadyRider){
-            throw new ForbiddenException("Error: Profile already completed! Role cannot be changed once set.");
+        // 1. Safe Continuous Profile Updates:
+        // Allows user to update their Name & Phone as many times as they want without compromising role security!
+        if (isAlreadyRider) {
+            Riders rider = riderRepository.findByUsers_Email(email).get();
+            if (request.getName() != null && !request.getName().trim().isEmpty()) {
+                rider.setRiderName(request.getName().trim());
+            }
+            if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+                rider.setPhoneNum(request.getPhone().trim());
+            }
+            riderRepository.save(rider);
+            return "Profile updated successfully!";
+        } else if (isAlreadyDriver) {
+            Driver driver = driverRepository.findByUser_Email(email).get();
+            if (request.getName() != null && !request.getName().trim().isEmpty()) {
+                driver.setDriverName(request.getName().trim());
+            }
+            driverRepository.save(driver);
+            return "Profile updated successfully!";
         }
 
-        String requestedRole = request.getRole().toUpperCase();
+        // 2. Initial Onboarding (First-time setup only):
+        String requestedRole = (request.getRole() != null) ? request.getRole().toUpperCase().trim() : "ROLE_RIDER";
 
         if(!requestedRole.equals("ROLE_RIDER") && !requestedRole.equals("ROLE_DRIVER")){
             throw new ForbiddenException("Error: Unauthorized or invalid role selection!");
@@ -94,21 +112,21 @@ public class UserService {
         user.setRole(Role.valueOf(requestedRole));
         userRepository.save(user);
 
-        if(request.getRole().equalsIgnoreCase("ROLE_RIDER")){
+        if(requestedRole.equalsIgnoreCase("ROLE_RIDER")){
             Riders rider = riderRepository.findByUsers_Email(email).orElse(new Riders());
             rider.setUsers(user);
-            rider.setRiderName(request.getName());
-            rider.setPhoneNum(request.getPhone());
+            rider.setRiderName(request.getName() != null && !request.getName().trim().isEmpty() ? request.getName().trim() : "SafarX Rider");
+            rider.setPhoneNum(request.getPhone() != null ? request.getPhone().trim() : "");
             if (rider.getRiderRating() == null || rider.getRiderRating() == 0.0) {
                 rider.setRiderRating(5.0);
             }
             riderRepository.save(rider);
             return "Rider profile created Successfully";
         }
-        else if (request.getRole().equalsIgnoreCase("ROLE_DRIVER")) {
+        else if (requestedRole.equalsIgnoreCase("ROLE_DRIVER")) {
             Driver driver = driverRepository.findByUser_Email(email).orElse(new Driver());
             driver.setUser(user);
-            driver.setDriverName(request.getName());
+            driver.setDriverName(request.getName() != null && !request.getName().trim().isEmpty() ? request.getName().trim() : "SafarX Driver");
             if (driver.getRating() == 0.0) {
                 driver.setRating(5.0);
             }

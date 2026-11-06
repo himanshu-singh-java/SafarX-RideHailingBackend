@@ -59,7 +59,7 @@ public class Rides {
     private String vehicleType;
 
     @Column(name = "current_radius_index")
-    private int currentRadiusIndex = 0;
+    private Integer currentRadiusIndex = 0;
 
     @Column(name = "last_broadcast_at")
     private LocalDateTime lastBroadcastAt;
@@ -180,12 +180,12 @@ public class Rides {
         this.vehicleType = vehicleType;
     }
 
-    public int getCurrentRadiusIndex() {
-        return currentRadiusIndex;
+    public Integer getCurrentRadiusIndex() {
+        return currentRadiusIndex != null ? currentRadiusIndex : 0;
     }
 
-    public void setCurrentRadiusIndex(int currentRadiusIndex) {
-        this.currentRadiusIndex = currentRadiusIndex;
+    public void setCurrentRadiusIndex(Integer currentRadiusIndex) {
+        this.currentRadiusIndex = currentRadiusIndex != null ? currentRadiusIndex : 0;
     }
 
     public LocalDateTime getLastBroadcastAt() {
