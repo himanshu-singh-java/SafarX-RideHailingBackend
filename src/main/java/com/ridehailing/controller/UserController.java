@@ -5,9 +5,8 @@ import com.ridehailing.dto.ProfileCompletionRequest;
 import com.ridehailing.dto.UserRegistrationRequest;
 import com.ridehailing.exception.UnauthorizedException;
 import com.ridehailing.model.Users;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 import com.ridehailing.service.UserService;
 
@@ -18,11 +17,14 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+
+    public UserController(UserService userService){
+        this.userService = userService;
+    }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody UserRegistrationRequest request){
+    public ResponseEntity<?> register(@Valid @RequestBody UserRegistrationRequest request){
 
         Users savedUser = userService.register(request);
 

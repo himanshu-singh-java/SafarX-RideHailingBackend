@@ -1,6 +1,7 @@
 package com.ridehailing.service;
 import com.ridehailing.dto.RideResponse;
 import com.ridehailing.event.RideBroadcastEvent;
+import com.ridehailing.event.RideNotificationEvent;
 import com.ridehailing.exception.ForbiddenException;
 import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.exception.RideConflictException;
@@ -12,7 +13,6 @@ import com.ridehailing.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ridehailing.util.LocationUtils;
@@ -31,7 +31,6 @@ public class RideEngine {
     private RideRepository rideRepository;
     private RiderRepository riderRepository;
     private DriverRepository driverRepository;
-    private SimpMessagingTemplate messagingTemplate;
     private RideNotifiedDriverRepository rideNotifiedDriverRepository;
     private ApplicationEventPublisher publisher;
 
@@ -43,7 +42,6 @@ public class RideEngine {
                       RideRepository rideRepository,
                       RiderRepository riderRepository,
                       DriverRepository driverRepository,
-                      SimpMessagingTemplate messagingTemplate,
                       RideNotifiedDriverRepository rideNotifiedDriverRepository,
                       ApplicationEventPublisher publisher){
 
@@ -51,7 +49,6 @@ public class RideEngine {
         this.rideRepository = rideRepository;
         this.riderRepository = riderRepository;
         this.driverRepository = driverRepository;
-        this.messagingTemplate = messagingTemplate;
         this.rideNotifiedDriverRepository = rideNotifiedDriverRepository;
         this.publisher = publisher;
     }
@@ -189,7 +186,7 @@ public class RideEngine {
         Map<String, Object> timeoutEvent = Map.of("type", "TIMEOUT", "rideId", rideId);
 
         for(RideNotifiedDriver skipped : notifiedDrivers){
-            messagingTemplate.convertAndSend("/topic/driver/" + skipped.getDriverId(), timeoutEvent);
+            publisher.publishEvent(new RideNotificationEvent("/topic/driver/" + skipped.getDriverId(), timeoutEvent));
         }
 
         if(ride.getCurrentRadiusIndex() >= SEARCH_RADII.length){
@@ -200,6 +197,7 @@ public class RideEngine {
         broadcastRide(rideId);
     }
 
+    @Transactional
     public RideResponse startRide(int rideId, String driverEmail){
 
         Rides ride = rideRepository.findByIdForUpdate(rideId).
@@ -222,7 +220,7 @@ public class RideEngine {
         Rides savedRide = rideRepository.save(ride);
 
         RideResponse response = RideMapper.mapToResponse(savedRide);
-        messagingTemplate.convertAndSend("/topic/ride/" + rideId, response);
+        publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, response));
 
         return response;
     }
@@ -254,10 +252,10 @@ public class RideEngine {
         Map<String, Object> cancelEvent = Map.of("type", "RIDE_CANCELLED", "rideId", rideId);
 
         for(RideNotifiedDriver nd : notifiedDrivers){
-            messagingTemplate.convertAndSend("/topic/driver/" + nd.getDriverId(), cancelEvent);
+            publisher.publishEvent(new RideNotificationEvent("/topic/driver/" + nd.getDriverId(), cancelEvent));
         }
 
-        messagingTemplate.convertAndSend("/topic/ride/" + rideId, RideMapper.mapToResponse(cancelledRide));
+        publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, RideMapper.mapToResponse(cancelledRide)));
         return cancelledRide;
     }
 
@@ -265,7 +263,6 @@ public class RideEngine {
     public void cancelRide(int rideId){
         cancelRide(rideId, null);
     }
-
 
     @Transactional
     public RideResponse acceptRide(int rideId, String driverEmail){
@@ -320,7 +317,7 @@ public class RideEngine {
         Rides updatedRide = rideRepository.findByIdForUpdate(rideId).get();
         RideResponse response = RideMapper.mapToResponse(updatedRide);
 
-        messagingTemplate.convertAndSend("/topic/ride/" + rideId, response);
+        publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, response));
         log.info("Ride {} ACCEPTED by Driver {}. Final Fare locked. Notified Rider.", rideId, loggedInDriver.getDriverId());
 
         List<RideNotifiedDriver> allNotified = rideNotifiedDriverRepository.findByRideId(rideId);
@@ -330,7 +327,7 @@ public class RideEngine {
 
         for (RideNotifiedDriver nd : allNotified) {
             if (nd.getDriverId() != loggedInDriver.getDriverId()) {
-                messagingTemplate.convertAndSend("/topic/driver/" + nd.getDriverId(), rideTakenEvent);
+                publisher.publishEvent(new RideNotificationEvent("/topic/driver/" + nd.getDriverId(), rideTakenEvent));
             }
         }
 
@@ -376,7 +373,7 @@ public class RideEngine {
 
         RideResponse compResponse = RideMapper.mapToResponse(savedRide);
 
-        messagingTemplate.convertAndSend("/topic/ride/" + rideId, compResponse);
+        publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, compResponse));
 
         return savedRide;
     }

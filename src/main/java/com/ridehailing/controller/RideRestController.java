@@ -1,12 +1,11 @@
 package com.ridehailing.controller;
+
 import com.ridehailing.exception.UnauthorizedException;
 import com.ridehailing.mapper.RideMapper;
 import com.ridehailing.dto.RideRequest;
 import com.ridehailing.dto.RideResponse;
-import com.ridehailing.model.RideStatus;
 import com.ridehailing.model.Rides;
-import org.json.HTTP;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,14 +15,18 @@ import java.security.Principal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/rides")
 @CrossOrigin(origins = "http://localhost:5173")
 public class RideRestController {
 
-    @Autowired
-    private RideEngine rideEngine;
+    private final RideEngine rideEngine;
+
+    public RideRestController(RideEngine rideEngine) {
+        this.rideEngine = rideEngine;
+    }
 
     @GetMapping("/history/{riderId}")
     public ResponseEntity<?> getAllRides(@PathVariable int riderId, Principal principal){
@@ -35,11 +38,15 @@ public class RideRestController {
         String riderEmail = principal.getName();
         List<Rides> rideHistory = rideEngine.getRideHistory(riderId, riderEmail);
 
-        return ResponseEntity.ok(rideHistory);
+        List<RideResponse> responseList = rideHistory.stream()
+                .map(RideMapper::mapToResponse)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(responseList);
     }
 
     @PostMapping("/book")
-    public ResponseEntity<?> bookRide(@RequestBody RideRequest request, Principal principal) {
+    public ResponseEntity<?> bookRide(@Valid @RequestBody RideRequest request, Principal principal) {
 
         if (principal == null) {
             throw new UnauthorizedException("Error: Unauthorized! Please login first.");
@@ -82,11 +89,9 @@ public class RideRestController {
         String driverEmail = principal.getName();
 
         Rides rides = rideEngine.completeRide(rideId, driverEmail);
-
         RideResponse compResponse = RideMapper.mapToResponse(rides);
 
         return ResponseEntity.ok(compResponse);
-
     }
 
     @PutMapping("/cancel/{rideId}")
@@ -115,7 +120,11 @@ public class RideRestController {
     @GetMapping("/all")
     public ResponseEntity<?> getAllRidesGlobal(){
         List<Rides> allRides = rideEngine.getAllGlobalRides();
-        return ResponseEntity.ok(allRides);
-    }
 
+        List<RideResponse> responseList = allRides.stream()
+                .map(RideMapper::mapToResponse)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(responseList);
+    }
 }
