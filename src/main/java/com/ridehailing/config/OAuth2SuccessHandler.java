@@ -62,7 +62,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         }
         else{
             user = existingUser.get();
-            if("LOCAL".equals(user.getProvider())){
+            if(!"GOOGLE".equals(user.getProvider())){
                 log.warn("OAuth Security: Attempt to link Google account to existing LOCAL account for email: {}", email);
                 response.sendRedirect(frontendBaseUrl + "/login?error=account_exists_use_password");
                 return;
