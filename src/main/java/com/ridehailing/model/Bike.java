@@ -1,15 +1,13 @@
 package com.ridehailing.model;
-
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
-@EqualsAndHashCode(callSuper = true)
 @Entity
+@Getter
+@Setter
 @Table(name = "bikes")
 public class Bike extends Vehicles {
 

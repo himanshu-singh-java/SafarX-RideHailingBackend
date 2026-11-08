@@ -3,9 +3,10 @@ package com.ridehailing.model;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "drivers")
+@Table(name = "drivers", indexes = {
+        @Index(name = "idx_driver_status_location", columnList = "status, current_latitude, current_longitude")
+})
 public class Driver {
-
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,11 +29,11 @@ public class Driver {
     @Column(name = "status")
     private VehicleStatus driverStatus;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     private Users user;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vehicle_id", referencedColumnName = "vehicle_id")
     private Vehicles vehicle;
 

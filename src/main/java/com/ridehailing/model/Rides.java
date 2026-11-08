@@ -5,7 +5,10 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "rides")
+@Table(name = "rides", indexes = {
+        @Index(name = "idx_rider_status", columnList = "rider_id, status"),
+        @Index(name = "idx_ride_status", columnList = "status")
+})
 public class Rides {
 
     @Id
@@ -14,11 +17,11 @@ public class Rides {
     private int rideId;
 
     @JoinColumn(name = "rider_id", nullable = false)
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     private Riders rider;
 
     @JoinColumn(name = "vehicle_id")
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     private Vehicles vehicle;
 
     @Column(name = "distance_km")
@@ -41,7 +44,8 @@ public class Rides {
     private LocalDateTime endTime;
 
     @Column(name = "payment_status")
-    private String paymentStatus = "PENDING";
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Column(name = "pickup_latitude")
     private Double pickupLat;
@@ -164,11 +168,11 @@ public class Rides {
         this.endTime = endTime;
     }
 
-    public String getPaymentStatus() {
+    public PaymentStatus getPaymentStatus() {
         return paymentStatus;
     }
 
-    public void setPaymentStatus(String paymentStatus) {
+    public void setPaymentStatus(PaymentStatus paymentStatus) {
         this.paymentStatus = paymentStatus;
     }
 

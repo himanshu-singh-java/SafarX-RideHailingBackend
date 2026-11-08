@@ -13,11 +13,11 @@ public abstract class Vehicles {
     @Column(name = "vehicle_id")
     private int vehicleId;
 
-    @Column(name = "plate_number", nullable = false)
+    @Column(name = "plate_number", nullable = false, unique = true)
     private String plateNumber;
 
     @JsonIgnore
-    @OneToOne(mappedBy = "vehicle", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "vehicle", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Driver driver;
 
     public Vehicles(){
