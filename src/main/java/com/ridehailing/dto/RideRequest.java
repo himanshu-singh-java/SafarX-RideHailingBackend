@@ -7,38 +7,28 @@ import jakarta.validation.constraints.NotNull;
 
 public class RideRequest {
 
-    private int riderId;
-
     @NotBlank(message = "Vehicle type is required")
     private String vehicleType;
 
     @NotNull(message = "Pickup latitude is required")
-    @Min(value = -90, message = "Invalid latitude")
-    @Max(value = 90, message = "Invalid latitude")
+    @Min(value = -90, message = "Invalid pickup latitude")
+    @Max(value = 90, message = "Invalid pickup latitude")
     private Double pickupLat;
 
     @NotNull(message = "Pickup longitude is required")
-    @Min(value = -180, message = "Invalid longitude")
-    @Max(value = 190, message = "Invalid longitude")
+    @Min(value = -180, message = "Invalid pickup longitude")
+    @Max(value = 180, message = "Invalid pickup longitude")
     private Double pickupLng;
 
-    @NotNull(message = "Pickup latitude is required")
-    @Min(value = -90, message = "Invalid latitude")
-    @Max(value = 90, message = "Invalid latitude")
+    @NotNull(message = "Drop latitude is required")
+    @Min(value = -90, message = "Invalid drop latitude")
+    @Max(value = 90, message = "Invalid drop latitude")
     private Double dropLat;
 
-    @NotNull(message = "Pickup longitude is required")
-    @Min(value = -180, message = "Invalid longitude")
-    @Max(value = 190, message = "Invalid longitude")
+    @NotNull(message = "Drop longitude is required")
+    @Min(value = -180, message = "Invalid drop longitude")
+    @Max(value = 180, message = "Invalid drop longitude")
     private Double dropLng;
-
-    public int getRiderId() {
-        return riderId;
-    }
-
-    public void setRiderId(int riderId) {
-        this.riderId = riderId;
-    }
 
     public String getVehicleType() {
         return vehicleType;

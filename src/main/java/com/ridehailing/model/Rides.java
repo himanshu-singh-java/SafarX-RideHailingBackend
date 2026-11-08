@@ -208,26 +208,4 @@ public class Rides {
         this.razorPayOrderId = razorPayOrderId;
     }
 
-    @Override
-    public String toString() {
-        return "Rides{" +
-                "rideId=" + rideId +
-                ", rider=" + rider +
-                ", vehicle=" + vehicle +
-                ", distanceKm=" + distanceKm +
-                ", fare=" + fare +
-                ", rideStatus=" + rideStatus +
-                ", razorPayOrderId='" + razorPayOrderId + '\'' +
-                ", startTime=" + startTime +
-                ", endTime=" + endTime +
-                ", paymentStatus='" + paymentStatus + '\'' +
-                ", pickupLat=" + pickupLat +
-                ", pickupLng=" + pickupLng +
-                ", dropLat=" + dropLat +
-                ", dropLng=" + dropLng +
-                ", vehicleType='" + vehicleType + '\'' +
-                ", currentRadiusIndex=" + currentRadiusIndex +
-                ", lastBroadcastAt=" + lastBroadcastAt +
-                '}';
-    }
 }

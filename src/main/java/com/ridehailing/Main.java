@@ -11,8 +11,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class Main {
     public static void main(String[] args) {
 
-        System.out.println("Initializing Database and Systems...");
-
-        ApplicationContext context = SpringApplication.run(Main.class);
+        ApplicationContext context = SpringApplication.run(Main.class, args);
     }
 }

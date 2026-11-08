@@ -1,6 +1,7 @@
 package com.ridehailing.controller;
 
 import com.ridehailing.dto.DriverOnboardingRequest;
+import com.ridehailing.dto.VehicleRegistrationRequest;
 import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.exception.RideConflictException;
 import com.ridehailing.model.Driver;
@@ -10,8 +11,7 @@ import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.VehicleRepository;
 import com.ridehailing.service.DriverService;
 import com.ridehailing.service.JwtService;
-import jakarta.persistence.Table;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,20 +24,26 @@ import java.util.Map;
 @RequestMapping("/api/driver")
 public class DriverController {
 
-    @Autowired
-    private DriverService driverService;
+    private final DriverService driverService;
 
-    @Autowired
-    private JwtService jwtService;
+    private final JwtService jwtService;
 
-    @Autowired
-    private DriverRepository driverRepository;
+    private final DriverRepository driverRepository;
 
-    @Autowired
-    private VehicleRepository vehicleRepository;
+    private final VehicleRepository vehicleRepository;
+
+    public DriverController(DriverService driverService,
+                            JwtService jwtService,
+                            DriverRepository driverRepository,
+                            VehicleRepository vehicleRepository){
+        this.driverService = driverService;
+        this.jwtService = jwtService;
+        this.driverRepository = driverRepository;
+        this.vehicleRepository = vehicleRepository;
+    }
 
     @PostMapping("/onboard")
-    public ResponseEntity<?> onBoardDriver(@RequestBody DriverOnboardingRequest request){
+    public ResponseEntity<?> onBoardDriver(@Valid @RequestBody DriverOnboardingRequest request){
 
         Driver driver = driverService.onBoardDriver(request);
         String token = jwtService.generateToken(request.getEmail(), "ROLE_DRIVER");
@@ -53,7 +59,7 @@ public class DriverController {
 
     @Transactional
     @PostMapping("/vehicle")
-    public ResponseEntity<?> registerVehicle(@RequestBody DriverOnboardingRequest request, Principal principal){
+    public ResponseEntity<?> registerVehicle(@Valid @RequestBody VehicleRegistrationRequest request, Principal principal){
         Driver driver = driverRepository.findByUser_Email(principal.getName()).
                 orElseThrow(() -> new ResourceNotFoundException("Driver profile not found"));
 
@@ -61,7 +67,7 @@ public class DriverController {
             throw new RideConflictException("Vehicle is already registered for this driver.");
         }
 
-        Vehicles vehicle = driverService.buildVehicle(request, driver);
+        Vehicles vehicle = driverService.buildVehicle(request.toOnboardingRequest(), driver);
         driver.setVehicle(vehicle);
 
         vehicleRepository.save(vehicle);

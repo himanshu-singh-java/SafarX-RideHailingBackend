@@ -4,7 +4,7 @@ import com.ridehailing.exception.ForbiddenException;
 import com.ridehailing.exception.UnauthorizedException;
 import com.ridehailing.service.JwtService;
 import com.ridehailing.service.WebSocketAuthService;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.jsonwebtoken.Claims;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -28,17 +28,20 @@ import java.security.Principal;
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    @Autowired
-    private JwtService jwtService;
-
-    @Autowired
-    private UserDetailsService userDetailsService;
-
-    @Autowired
-    private WebSocketAuthService webSocketAuthService;
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+    private final WebSocketAuthService webSocketAuthService;
 
     @Value("${frontend.url:http://localhost:5173}")
     private String frontendBaseUrl;
+
+    public WebSocketConfig(JwtService jwtService,
+                           UserDetailsService userDetailsService,
+                           WebSocketAuthService webSocketAuthService) {
+        this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
+        this.webSocketAuthService = webSocketAuthService;
+    }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
@@ -65,19 +68,26 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                     String authHeader = accessor.getFirstNativeHeader("Authorization");
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         String token = authHeader.substring(7);
-                        String email = jwtService.extractUsername(token);
-                        if (email != null) {
-                            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-                            if (jwtService.isTokenValid(token, userDetails)) {
-                                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                                        userDetails, null, userDetails.getAuthorities()
-                                );
-                                accessor.setUser(auth);
+                        try {
+                            Claims claims = jwtService.extractAllClaims(token);
+                            String email = claims.getSubject();
+                            if (email != null) {
+                                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                                if (jwtService.isTokenValid(claims, userDetails)) {
+                                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                                            userDetails, null, userDetails.getAuthorities()
+                                    );
+                                    accessor.setUser(auth);
+                                } else {
+                                    throw new UnauthorizedException("Error: Invalid JWT Token for WebSocket!");
+                                }
                             } else {
-                                throw new UnauthorizedException("Error: Invalid JWT Token for WebSocket!");
+                                throw new UnauthorizedException("Error: Could not extract email from token!");
                             }
-                        } else {
-                            throw new UnauthorizedException("Error: Could not extract email from token!");
+                        } catch (UnauthorizedException e) {
+                            throw e;
+                        } catch (Exception e) {
+                            throw new UnauthorizedException("Error: Invalid or expired JWT token for WebSocket!");
                         }
                     } else {
                         throw new UnauthorizedException("Error: Missing or invalid Authorization header!");

@@ -7,15 +7,17 @@ import com.razorpay.Utils;
 import com.ridehailing.exception.ForbiddenException;
 import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.exception.RideConflictException;
+import com.ridehailing.model.PaymentStatus;
 import com.ridehailing.model.RideStatus;
 import com.ridehailing.model.Rides;
 import com.ridehailing.repository.RideRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+@Slf4j
 @Service
 public class PaymentService {
 
@@ -28,6 +30,7 @@ public class PaymentService {
     @Autowired
     private RideRepository rideRepository;
 
+    @Transactional
     public String createOrder(int rideId, String riderEmail) throws RazorpayException {
 
         Rides ride = rideRepository.findById(rideId)
@@ -41,7 +44,7 @@ public class PaymentService {
             throw new RideConflictException("Error: Payment can only be initiated for COMPLETED rides. Current status: " + ride.getRideStatus());
         }
 
-        if("PAID".equals(ride.getPaymentStatus())){
+        if(ride.getPaymentStatus() == PaymentStatus.SUCCESS){
             throw new RideConflictException("Error: This ride is already paid.");
         }
 
@@ -83,7 +86,7 @@ public class PaymentService {
                 throw new ForbiddenException("Error: Unauthorized! You can only verify payment for your own rides.");
             }
 
-            if("PAID".equals(ride.getPaymentStatus())){
+            if(ride.getPaymentStatus() == PaymentStatus.SUCCESS){
                 return true;
             }
 
@@ -101,13 +104,13 @@ public class PaymentService {
             boolean isAuthentic = Utils.verifyPaymentSignature(options, keySecret);
 
             if(isAuthentic){
-                ride.setPaymentStatus("PAID");
+                ride.setPaymentStatus(PaymentStatus.SUCCESS);
                 rideRepository.save(ride);
             }
             return isAuthentic;
         }
         catch (RazorpayException e){
-            System.out.println("Razorpay Signature Verification Failed: " + e.getMessage());
+            log.error("Razorpay Signature Verification Failed: {}", e.getMessage());
             return false;
         }
     }

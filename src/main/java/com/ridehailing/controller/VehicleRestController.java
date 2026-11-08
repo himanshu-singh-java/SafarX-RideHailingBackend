@@ -1,5 +1,6 @@
 package com.ridehailing.controller;
 
+import com.ridehailing.dto.VehicleResponse;
 import com.ridehailing.model.Rides;
 import com.ridehailing.model.Vehicles;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,37 +16,37 @@ import java.util.List;
 @RequestMapping("/api/vehicles")
 public class VehicleRestController {
 
-    @Autowired
-    private VehicleRepository vehicleRepository;
+    private final VehicleRepository vehicleRepository;
 
-    @Autowired
-    private RideEngine rideEngine;
+    private final RideEngine rideEngine;
+
+    public VehicleRestController(VehicleRepository vehicleRepository, RideEngine rideEngine){
+        this.vehicleRepository = vehicleRepository;
+        this.rideEngine = rideEngine;
+    }
 
     @GetMapping("/status/{type}")
-    public ResponseEntity<?> getVehicleByType(@PathVariable String type){
-        List<Vehicles> vehicles = new ArrayList<>();
-
-        switch (type.toUpperCase()){
-            case "BIKE":
-                vehicles = vehicleRepository.findAllBikes();
-                break;
-            case "CAR":
-                vehicles = vehicleRepository.findAllCars();
-                break;
-            case "AUTO":
-                vehicles = vehicleRepository.findAllAutos();
-                break;
-        }
+    public ResponseEntity<List<VehicleResponse>> getVehicleByType(@PathVariable String type){
+        List<Vehicles> vehicles = switch (type.toUpperCase()){
+            case "BIKE" -> vehicleRepository.findAllBikes();
+            case "CAR" -> vehicleRepository.findAllCars();
+            case "AUTO" -> vehicleRepository.findAllAutos();
+            default -> new ArrayList<>();
+        };
 
         if(vehicles == null || vehicles.isEmpty()){
             return ResponseEntity.ok(new ArrayList<>());
         }
-        return ResponseEntity.ok(vehicles);
+
+        List<VehicleResponse> response = vehicles.stream()
+                .map(VehicleResponse::fromEntity)
+                .toList();
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/complete-ride/{vehicleId}")
     public ResponseEntity<?> completeRideByVehicle(@PathVariable int vehicleId){
-        Rides completeRide = rideEngine.completeRideByVehicleId(vehicleId);
+        rideEngine.completeRideByVehicleId(vehicleId);
         return ResponseEntity.ok("Ride Completed");
     }
 }
