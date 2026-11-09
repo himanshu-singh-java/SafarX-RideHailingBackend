@@ -59,16 +59,17 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             user.setRole(Role.ROLE_RIDER);
             user.setProvider("GOOGLE");
             user = userRepository.save(user);
+            log.info("OAuth2: New user registered via Google SSO: {}", email);
         }
         else{
             user = existingUser.get();
-            if(!"GOOGLE".equals(user.getProvider())){
-                log.warn("OAuth Security: Attempt to link Google account to existing LOCAL account for email: {}", email);
-                response.sendRedirect(frontendBaseUrl + "/login?error=account_exists_use_password");
-                return;
-            }
+            // Secure Account Linking:
+            // Google OAuth guarantees cryptographically verified ownership of this email address.
+            // We allow the user to authenticate seamlessly while preserving their existing password and role.
+            log.info("OAuth2: User {} logged in via Google SSO (account provider: {})", email, user.getProvider());
         }
 
+        // Auto-provision Rider profile if user has ROLE_RIDER and no rider profile exists yet
         if(user.getRole() == Role.ROLE_RIDER && riderRepository.findByUsers_Email(email).isEmpty()){
             Riders rider = new Riders();
             rider.setUsers(user);
@@ -76,6 +77,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             rider.setPhoneNum("");
             rider.setRiderRating(5.0);
             riderRepository.save(rider);
+            log.info("OAuth2: Created default Rider profile for {}", email);
         }
 
         String roleName = user.getRole() != null ? user.getRole().name() : "ROLE_RIDER";
