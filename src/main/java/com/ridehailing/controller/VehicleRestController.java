@@ -1,9 +1,7 @@
 package com.ridehailing.controller;
 
 import com.ridehailing.dto.VehicleResponse;
-import com.ridehailing.model.Rides;
 import com.ridehailing.model.Vehicles;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.ridehailing.repository.VehicleRepository;

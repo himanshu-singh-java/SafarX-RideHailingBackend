@@ -1,7 +1,7 @@
 package com.ridehailing.config;
 import com.ridehailing.filter.JwtFilter;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -26,6 +26,9 @@ public class SecurityConfig {
     private final JwtFilter jwtFilter;
 
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+
+    @Value("${frontend.url:http://localhost:5173}")
+    private String frontEndBaseUrl;
 
     public SecurityConfig(JwtFilter jwtFilter, OAuth2SuccessHandler oAuth2SuccessHandler){
         this.jwtFilter = jwtFilter;
@@ -68,7 +71,7 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:5173");
+        config.addAllowedOrigin(frontEndBaseUrl);
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         source.registerCorsConfiguration("/**", config);

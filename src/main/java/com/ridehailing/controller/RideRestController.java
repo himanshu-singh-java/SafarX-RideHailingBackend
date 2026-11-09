@@ -19,7 +19,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/rides")
-@CrossOrigin(origins = "http://localhost:5173")
 public class RideRestController {
 
     private final RideEngine rideEngine;
@@ -75,6 +74,11 @@ public class RideRestController {
 
     @PutMapping("/start/{rideId}")
     public ResponseEntity<?> startRide(@PathVariable int rideId, Principal principal) {
+
+        if (principal == null) {
+            throw new UnauthorizedException("Error: Unauthorized! Please login first.");
+        }
+
         String driverEmail = principal.getName();
         return ResponseEntity.ok(rideEngine.startRide(rideId, driverEmail));
     }
