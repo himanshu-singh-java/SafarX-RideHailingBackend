@@ -35,6 +35,14 @@ public interface DriverRepository extends JpaRepository<Driver, Integer> {
     int updateStatusIfNotOnRide(@Param("id") int id,
                                 @Param("s") VehicleStatus s);
 
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Driver d SET d.driverStatus = com.ridehailing.model.VehicleStatus.AVAILABLE " +
+           "WHERE d.driverId = :id AND d.driverStatus = com.ridehailing.model.VehicleStatus.ON_RIDE " +
+           "AND NOT EXISTS (SELECT 1 FROM Rides r WHERE r.vehicle = d.vehicle " +
+           "AND r.rideStatus IN (com.ridehailing.model.RideStatus.ACCEPTED, com.ridehailing.model.RideStatus.IN_PROGRESS))")
+    int recoverStuckOnRide(@Param("id") int id);
+
 
 
 }

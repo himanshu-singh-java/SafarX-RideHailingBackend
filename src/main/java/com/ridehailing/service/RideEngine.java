@@ -12,7 +12,6 @@ import com.ridehailing.mapper.RideMapper;
 import com.ridehailing.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ridehailing.util.LocationUtils;
@@ -243,7 +242,6 @@ public class RideEngine {
         && ride.getVehicle() != null && ride.getVehicle().getDriver() != null){
             Driver assignedDriver = ride.getVehicle().getDriver();
             assignedDriver.setDriverStatus(VehicleStatus.AVAILABLE);
-            driverRepository.save(assignedDriver);
         }
 
         ride.setRideStatus(RideStatus.CANCELLED);
