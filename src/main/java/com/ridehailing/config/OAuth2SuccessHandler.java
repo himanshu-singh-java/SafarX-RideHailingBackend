@@ -63,13 +63,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         }
         else{
             user = existingUser.get();
-            // Secure Account Linking:
-            // Google OAuth guarantees cryptographically verified ownership of this email address.
-            // We allow the user to authenticate seamlessly while preserving their existing password and role.
+            if (!"GOOGLE".equals(user.getProvider())) {
+                log.warn("OAuth: blocked Google login for non-Google account: {}", email);
+                response.sendRedirect(frontendBaseUrl + "/login?error=account_exists_use_password");
+                return;
+            }
             log.info("OAuth2: User {} logged in via Google SSO (account provider: {})", email, user.getProvider());
         }
 
-        // Auto-provision Rider profile if user has ROLE_RIDER and no rider profile exists yet
         if(user.getRole() == Role.ROLE_RIDER && riderRepository.findByUsers_Email(email).isEmpty()){
             Riders rider = new Riders();
             rider.setUsers(user);
