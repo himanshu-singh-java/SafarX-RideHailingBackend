@@ -243,6 +243,7 @@ public class RideEngine {
         && ride.getVehicle() != null && ride.getVehicle().getDriver() != null){
             Driver assignedDriver = ride.getVehicle().getDriver();
             assignedDriver.setDriverStatus(VehicleStatus.AVAILABLE);
+            driverRepository.save(assignedDriver);
         }
 
         ride.setRideStatus(RideStatus.CANCELLED);

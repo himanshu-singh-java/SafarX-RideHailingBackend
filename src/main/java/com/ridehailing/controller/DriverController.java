@@ -32,14 +32,18 @@ public class DriverController {
 
     private final VehicleRepository vehicleRepository;
 
+    private final com.ridehailing.repository.RideRepository rideRepository;
+
     public DriverController(DriverService driverService,
                             JwtService jwtService,
                             DriverRepository driverRepository,
-                            VehicleRepository vehicleRepository){
+                            VehicleRepository vehicleRepository,
+                            com.ridehailing.repository.RideRepository rideRepository){
         this.driverService = driverService;
         this.jwtService = jwtService;
         this.driverRepository = driverRepository;
         this.vehicleRepository = vehicleRepository;
+        this.rideRepository = rideRepository;
     }
 
     @PostMapping("/onboard")
@@ -90,6 +94,13 @@ public class DriverController {
         int updated = driverRepository.updateStatusIfNotOnRide(driver.getDriverId(), status);
 
         if(updated == 0){
+            boolean hasActiveRide = driver.getVehicle() != null &&
+                    rideRepository.findActiveRideByVehicleId(driver.getVehicle().getVehicleId()).isPresent();
+            if (!hasActiveRide && status == VehicleStatus.AVAILABLE) {
+                driver.setDriverStatus(VehicleStatus.AVAILABLE);
+                driverRepository.save(driver);
+                return ResponseEntity.ok(Map.of("message", "Driver status recovered to AVAILABLE (no active trip)."));
+            }
             return ResponseEntity.badRequest().body(Map.of("message", "Cannot change status while on an active ride."));
         }
 

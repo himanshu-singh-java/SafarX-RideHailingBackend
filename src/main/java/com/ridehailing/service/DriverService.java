@@ -98,8 +98,8 @@ public class DriverService {
         driver.setUser(user);
         driver.setDriverName(request.getFullName());
         driver.setRating(5.0);
-        driver.setCurrentLat(request.getLatitude() != null ? request.getLatitude() : 17.3850);
-        driver.setCurrentLng(request.getLongitude() != null ? request.getLongitude() : 78.4867);
+        driver.setCurrentLat(request.getLatitude() != null ? request.getLatitude() : 17.4435);
+        driver.setCurrentLng(request.getLongitude() != null ? request.getLongitude() : 78.4532);
         driver.setDriverStatus(VehicleStatus.AVAILABLE);
 
         Vehicles vehicle = buildVehicle(request, driver);
