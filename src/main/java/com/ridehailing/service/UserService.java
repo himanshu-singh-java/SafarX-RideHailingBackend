@@ -8,7 +8,6 @@ import com.ridehailing.exception.RideConflictException;
 import com.ridehailing.model.*;
 import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.RiderRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -20,32 +19,37 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserService {
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
+    private final RiderRepository riderRepository;
+    private final DriverRepository driverRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private AuthenticationManager authenticationManager;
-
-    @Autowired
-    private JwtService jwtService;
-
-    @Autowired
-    private RiderRepository riderRepository;
-
-    @Autowired
-    private DriverRepository driverRepository;
+    public UserService(PasswordEncoder passwordEncoder,
+                       UserRepository userRepository,
+                       AuthenticationManager authenticationManager,
+                       JwtService jwtService,
+                       RiderRepository riderRepository,
+                       DriverRepository driverRepository){
+        this.passwordEncoder = passwordEncoder;
+        this.userRepository = userRepository;
+        this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
+        this.riderRepository = riderRepository;
+        this.driverRepository = driverRepository;
+    }
 
     public Users register(UserRegistrationRequest request) {
 
-        if(userRepository.findByEmail(request.getEmail()).isPresent()){
+        String email = request.getEmail().trim().toLowerCase();
+
+        if(userRepository.findByEmail(email).isPresent()){
             throw new RideConflictException("Error: Email is already registered!");
         }
 
         Users newUser = new Users();
-        newUser.setEmail(request.getEmail());
+        newUser.setEmail(email);
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
         newUser.setRole(Role.ROLE_RIDER);
 
@@ -54,8 +58,10 @@ public class UserService {
 
     public String verify(Users user) {
 
+        String email = user.getEmail().trim().toLowerCase();
+
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword())
+                new UsernamePasswordAuthenticationToken(email, user.getPassword())
         );
 
         if(authentication.isAuthenticated()){
@@ -67,7 +73,7 @@ public class UserService {
                     roleName = dbUser.getRole().name();
                 }
             }
-            return jwtService.generateToken(user.getEmail(), roleName);
+            return jwtService.generateToken(email, roleName);
         }
         return "Fail";
     }
@@ -81,8 +87,6 @@ public class UserService {
         boolean isAlreadyRider = riderRepository.findByUsers_Email(email).isPresent();
         boolean isAlreadyDriver = driverRepository.findByUser_Email(email).isPresent();
 
-        // 1. Safe Continuous Profile Updates:
-        // Allows user to update their Name & Phone as many times as they want without compromising role security!
         if (isAlreadyRider) {
             Riders rider = riderRepository.findByUsers_Email(email).get();
             if (request.getName() != null && !request.getName().trim().isEmpty()) {
@@ -102,7 +106,6 @@ public class UserService {
             return "Profile updated successfully!";
         }
 
-        // 2. Initial Onboarding (First-time setup only):
         String requestedRole = (request.getRole() != null) ? request.getRole().toUpperCase().trim() : "ROLE_RIDER";
 
         if(!requestedRole.equals("ROLE_RIDER") && !requestedRole.equals("ROLE_DRIVER")){
@@ -123,7 +126,7 @@ public class UserService {
             riderRepository.save(rider);
             return "Rider profile created Successfully";
         }
-        else if (requestedRole.equalsIgnoreCase("ROLE_DRIVER")) {
+        else if ("ROLE_DRIVER".equalsIgnoreCase(requestedRole)) {
             Driver driver = driverRepository.findByUser_Email(email).orElse(new Driver());
             driver.setUser(user);
             driver.setDriverName(request.getName() != null && !request.getName().trim().isEmpty() ? request.getName().trim() : "SafarX Driver");

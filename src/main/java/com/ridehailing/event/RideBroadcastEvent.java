@@ -1,30 +1,13 @@
 package com.ridehailing.event;
-
-
 import com.ridehailing.dto.RideResponse;
-
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import java.util.List;
 
+@Getter
+@AllArgsConstructor
 public class RideBroadcastEvent {
-    private int rideId;
-    private RideResponse rideResponse;
-    private List<Integer> driversId;
-
-    public RideBroadcastEvent(int rideId, RideResponse rideResponse, List<Integer> driversId){
-        this.rideId = rideId;
-        this.rideResponse = rideResponse;
-        this.driversId = driversId;
-    }
-
-    public int getRideId() {
-        return rideId;
-    }
-
-    public RideResponse getRideResponse() {
-        return rideResponse;
-    }
-
-    public List<Integer> getDriversId() {
-        return driversId;
-    }
+    private final int rideId;
+    private final RideResponse rideResponse;
+    private final List<Integer> driversId;
 }

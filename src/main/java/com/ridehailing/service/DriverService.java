@@ -1,7 +1,6 @@
 package com.ridehailing.service;
 
 import com.ridehailing.dto.DriverOnboardingRequest;
-import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.exception.RideConflictException;
 import com.ridehailing.model.*;
 import com.ridehailing.repository.DriverRepository;
@@ -16,17 +15,20 @@ import java.util.Optional;
 @Service
 public class DriverService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final DriverRepository driverRepository;
+    private final VehicleRepository vehicleRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private DriverRepository driverRepository;
-
-    @Autowired
-    private VehicleRepository vehicleRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    public DriverService(UserRepository userRepository,
+                         DriverRepository driverRepository,
+                         VehicleRepository vehicleRepository,
+                         PasswordEncoder passwordEncoder){
+        this.userRepository = userRepository;
+        this.driverRepository = driverRepository;
+        this.vehicleRepository = vehicleRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
 
     public Vehicles buildVehicle(DriverOnboardingRequest request, Driver driver){

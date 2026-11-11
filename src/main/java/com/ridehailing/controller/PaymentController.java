@@ -15,8 +15,11 @@ import java.util.Map;
 @RequestMapping("/api/payment")
 public class PaymentController {
 
-    @Autowired
-    private PaymentService paymentService;
+    private final PaymentService paymentService;
+
+    public PaymentController(PaymentService paymentService){
+        this.paymentService = paymentService;
+    }
 
     @PostMapping(value = "/create-order", produces = "application/json")
     public ResponseEntity<?> createOrder(@RequestBody PaymentRequest request, Principal principal) throws RazorpayException {

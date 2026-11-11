@@ -7,7 +7,6 @@ import com.ridehailing.model.Rides;
 import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.RideRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
@@ -21,14 +20,17 @@ import java.security.Principal;
 @Controller
 public class LocationSocketController {
 
-    @Autowired
-    private SimpMessagingTemplate messagingTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final DriverRepository driverRepository;
+    private final RideRepository rideRepository;
 
-    @Autowired
-    private DriverRepository driverRepository;
-
-    @Autowired
-    private RideRepository rideRepository;
+    public LocationSocketController(SimpMessagingTemplate messagingTemplate,
+                                    DriverRepository driverRepository,
+                                    RideRepository rideRepository){
+        this.messagingTemplate = messagingTemplate;
+        this.driverRepository = driverRepository;
+        this.rideRepository = rideRepository;
+    }
 
     @Transactional
     @MessageMapping("/update-location")

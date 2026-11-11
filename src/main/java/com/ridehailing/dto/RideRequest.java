@@ -4,7 +4,13 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
+@Getter
+@Setter
 public class RideRequest {
 
     @NotBlank(message = "Vehicle type is required")
@@ -29,44 +35,4 @@ public class RideRequest {
     @Min(value = -180, message = "Invalid drop longitude")
     @Max(value = 180, message = "Invalid drop longitude")
     private Double dropLng;
-
-    public String getVehicleType() {
-        return vehicleType;
-    }
-
-    public void setVehicleType(String vehicleType) {
-        this.vehicleType = vehicleType;
-    }
-
-    public Double getPickupLat() {
-        return pickupLat;
-    }
-
-    public void setPickupLat(Double pickupLat) {
-        this.pickupLat = pickupLat;
-    }
-
-    public Double getPickupLng() {
-        return pickupLng;
-    }
-
-    public void setPickupLng(Double pickupLng) {
-        this.pickupLng = pickupLng;
-    }
-
-    public Double getDropLat() {
-        return dropLat;
-    }
-
-    public void setDropLat(Double dropLat) {
-        this.dropLat = dropLat;
-    }
-
-    public Double getDropLng() {
-        return dropLng;
-    }
-
-    public void setDropLng(Double dropLng) {
-        this.dropLng = dropLng;
-    }
 }

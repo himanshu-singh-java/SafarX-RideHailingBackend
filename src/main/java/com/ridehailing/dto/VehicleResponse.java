@@ -4,39 +4,37 @@ import com.ridehailing.model.Auto;
 import com.ridehailing.model.Bike;
 import com.ridehailing.model.Car;
 import com.ridehailing.model.Vehicles;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 
 @Getter
-@Setter
+@AllArgsConstructor
 public class VehicleResponse {
 
-    private int vehicleId;
-    private String vehicleType;
-    private String model;
-    private String categoryOrSubType;
-    private int passengerCapacity;
+    private final int vehicleId;
+    private final String vehicleType;
+    private final String model;
+    private final String categoryOrSubType;
+    private final int passengerCapacity;
 
     public static VehicleResponse fromEntity(Vehicles vehicle) {
-        VehicleResponse dto = new VehicleResponse();
-        dto.setVehicleId(vehicle.getVehicleId());
 
         if (vehicle instanceof Car car) {
-            dto.setVehicleType("CAR");
-            dto.setModel(car.getCarModel());
-            dto.setCategoryOrSubType(car.getCarCategory());
-            dto.setPassengerCapacity(car.getPassengerCapacity());
+            return new VehicleResponse(
+                    vehicle.getVehicleId(), "CAR", car.getCarModel(),
+                    car.getCarCategory(), car.getPassengerCapacity()
+            );
         } else if (vehicle instanceof Bike bike) {
-            dto.setVehicleType("BIKE");
-            dto.setModel(bike.getBikeModel());
-            dto.setCategoryOrSubType(bike.getBikeType());
-            dto.setPassengerCapacity(bike.getPassengerCapacity());
+            return new VehicleResponse(
+                    vehicle.getVehicleId(), "BIKE", bike.getBikeModel(),
+                    bike.getBikeType(), bike.getPassengerCapacity()
+            );
         } else if (vehicle instanceof Auto auto) {
-            dto.setVehicleType("AUTO");
-            dto.setModel(auto.getAutoModel());
-            dto.setCategoryOrSubType(auto.getPermitType());
-            dto.setPassengerCapacity(auto.getPassengerCapacity());
+            return new VehicleResponse(
+                    vehicle.getVehicleId(), "AUTO", auto.getAutoModel(),
+                    auto.getPermitType(), auto.getPassengerCapacity()
+            );
         }
-        return dto;
+        return new VehicleResponse(vehicle.getVehicleId(), "UNKNOWN", "UNKNOWN", "UNKNOWN", 0);
     }
 }

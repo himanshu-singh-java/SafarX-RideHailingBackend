@@ -26,17 +26,16 @@ import java.util.Map;
 @Transactional
 public class RideEngine {
 
-    private VehicleRepository vehicleRepository;
-    private RideRepository rideRepository;
-    private RiderRepository riderRepository;
-    private DriverRepository driverRepository;
-    private RideNotifiedDriverRepository rideNotifiedDriverRepository;
-    private ApplicationEventPublisher publisher;
+    private final VehicleRepository vehicleRepository;
+    private final RideRepository rideRepository;
+    private final RiderRepository riderRepository;
+    private final DriverRepository driverRepository;
+    private final RideNotifiedDriverRepository rideNotifiedDriverRepository;
+    private final ApplicationEventPublisher publisher;
 
     private final int[] SEARCH_RADII = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     public static final int WAVE_TIMEOUT_SECONDS = 20;
 
-    @Autowired
     public RideEngine(VehicleRepository vehicleRepository,
                       RideRepository rideRepository,
                       RiderRepository riderRepository,

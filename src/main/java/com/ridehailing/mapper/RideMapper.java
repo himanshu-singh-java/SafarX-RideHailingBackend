@@ -19,18 +19,15 @@ public class RideMapper {
     }
 
     public static RideResponse mapToResponse(Rides rides){
-        RideResponse response = new RideResponse();
 
-        response.setRideId(rides.getRideId());
-
-        response.setPickupLat(rides.getPickupLat());
-        response.setPickupLng(rides.getPickupLng());
-        response.setDropLat(rides.getDropLat());
-        response.setDropLng(rides.getDropLng());
-
-        response.setFare(rides.getFare());
-        response.setStatus(rides.getRideStatus().toString());
-
-        return response;
+        return new RideResponse(
+                rides.getRideId(),
+                rides.getPickupLat(),
+                rides.getPickupLng(),
+                rides.getDropLat(),
+                rides.getDropLng(),
+                rides.getFare(),
+                rides.getRideStatus() != null ? rides.getRideStatus().name() : "UNKNOWN"
+        );
     }
 }

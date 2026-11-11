@@ -13,7 +13,6 @@ import com.ridehailing.model.Rides;
 import com.ridehailing.repository.RideRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,8 +26,11 @@ public class PaymentService {
     @Value("${razorpay.key.secret}")
     private String keySecret;
 
-    @Autowired
-    private RideRepository rideRepository;
+    private final RideRepository rideRepository;
+
+    public PaymentService(RideRepository rideRepository){
+        this.rideRepository = rideRepository;
+    }
 
     @Transactional
     public String createOrder(int rideId, String riderEmail) throws RazorpayException {

@@ -1,11 +1,9 @@
 package com.ridehailing.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
-@Getter
-@Setter
+@Data
 public class VehicleRegistrationRequest {
 
     @NotBlank(message = "Vehicle type is required")
