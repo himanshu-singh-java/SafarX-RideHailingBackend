@@ -234,11 +234,11 @@ public class RideEngine {
             throw new ForbiddenException("Error: Unauthorized! You can only cancel your own rides.");
         }
 
-        if(ride.getRideStatus() == RideStatus.COMPLETED || ride.getRideStatus() == RideStatus.CANCELLED){
+        if(ride.getRideStatus() == RideStatus.IN_PROGRESS ||ride.getRideStatus() == RideStatus.COMPLETED || ride.getRideStatus() == RideStatus.CANCELLED){
             throw new RideConflictException("Error: Ride is already " + ride.getRideStatus() + " and cannot be cancelled.");
         }
 
-        if((ride.getRideStatus() == RideStatus.ACCEPTED || ride.getRideStatus() == RideStatus.IN_PROGRESS)
+        if((ride.getRideStatus() == RideStatus.ACCEPTED)
         && ride.getVehicle() != null && ride.getVehicle().getDriver() != null){
             Driver assignedDriver = ride.getVehicle().getDriver();
             assignedDriver.setDriverStatus(VehicleStatus.AVAILABLE);
