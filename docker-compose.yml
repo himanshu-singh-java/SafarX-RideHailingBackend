@@ -1,0 +1,44 @@
+services:
+  safarx-mysql:
+    image: mysql:8.0
+    container_name: safarx-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: SafarX_db
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - safarx-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  safarx-backend:
+    build: .
+    container_name: safarx-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      DB_URL: jdbc:mysql://safarx-mysql:3306/SafarX_db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+      DB_USERNAME: root
+    depends_on:
+      safarx-mysql:
+        condition: service_healthy
+    networks:
+      - safarx-net
+
+volumes:
+  mysql_data:
+
+networks:
+  safarx-net:
+    driver: bridge
