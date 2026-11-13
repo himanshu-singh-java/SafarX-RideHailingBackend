@@ -58,6 +58,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         if(isNew){
             user = new Users();
             user.setEmail(email);
+            user.setName(name != null && !name.isBlank() ? name.trim() : null);
             user.setPassword("");
             user.setRole(Role.ROLE_RIDER);
             user.setProvider("GOOGLE");
@@ -70,6 +71,10 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 log.warn("OAuth: blocked Google login for non-Google account: {}", email);
                 response.sendRedirect(frontendBaseUrl + "/login?error=account_exists_use_password");
                 return;
+            }
+            if ((user.getName() == null || user.getName().isBlank()) && name != null && !name.isBlank()) {
+                user.setName(name.trim());
+                userRepository.save(user);
             }
             log.info("OAuth2: User {} logged in via Google SSO (account provider: {})", email, user.getProvider());
         }

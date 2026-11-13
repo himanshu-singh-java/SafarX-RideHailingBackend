@@ -51,11 +51,14 @@ public class AuthController {
 
         if(role == Role.ROLE_RIDER){
             Riders rider = riderRepository.findByUsers_Email(email).orElse(null);
+            String riderName = (rider != null && rider.getRiderName() != null && !rider.getRiderName().isBlank())
+                    ? rider.getRiderName()
+                    : user.getName();
 
             return ResponseEntity.ok(new UserProfileResponse(
                     user.getEmail(),
                     roleName,
-                    rider != null ? rider.getRiderName() : null,
+                    riderName,
                     rider != null ? rider.getRiderID() : null,
                     null,
                     null
@@ -64,10 +67,14 @@ public class AuthController {
 
         if (role == Role.ROLE_DRIVER) {
             Driver driver = driverRepository.findByUser_Email(email).orElse(null);
+            String driverName = (driver != null && driver.getDriverName() != null && !driver.getDriverName().isBlank())
+                    ? driver.getDriverName()
+                    : user.getName();
+
             return ResponseEntity.ok(new UserProfileResponse(
                     user.getEmail(),
                     roleName,
-                    driver != null ? driver.getDriverName() : null,
+                    driverName,
                     null,
                     driver != null ? driver.getDriverId() : null,
                     driver != null && driver.getDriverStatus() != null ? driver.getDriverStatus().name() : null
@@ -77,7 +84,7 @@ public class AuthController {
         return ResponseEntity.ok(new UserProfileResponse(
                 user.getEmail(),
                 roleName,
-                null,
+                user.getName(),
                 null,
                 null,
                 null

@@ -92,6 +92,7 @@ public class DriverService {
 
         Users user = new Users();
         user.setEmail(request.getEmail());
+        user.setName(request.getFullName() != null ? request.getFullName().trim() : null);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.ROLE_DRIVER);
         user = userRepository.save(user);

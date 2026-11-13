@@ -52,6 +52,9 @@ public class UserService {
         newUser.setEmail(email);
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
         newUser.setRole(Role.ROLE_RIDER);
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            newUser.setName(request.getName().trim());
+        }
 
         return userRepository.save(newUser);
     }
@@ -84,26 +87,46 @@ public class UserService {
         Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: User not found in database!"));
 
+        String cleanName = (request.getName() != null && !request.getName().trim().isEmpty())
+                ? request.getName().trim()
+                : null;
+        String cleanPhone = (request.getPhone() != null && !request.getPhone().trim().isEmpty())
+                ? request.getPhone().trim()
+                : null;
+
         boolean isAlreadyRider = riderRepository.findByUsers_Email(email).isPresent();
         boolean isAlreadyDriver = driverRepository.findByUser_Email(email).isPresent();
 
         if (isAlreadyRider) {
             Riders rider = riderRepository.findByUsers_Email(email).get();
-            if (request.getName() != null && !request.getName().trim().isEmpty()) {
-                rider.setRiderName(request.getName().trim());
+            if (cleanName != null) {
+                rider.setRiderName(cleanName);
+                user.setName(cleanName);
+                userRepository.save(user);
             }
-            if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
-                rider.setPhoneNum(request.getPhone().trim());
+            if (cleanPhone != null) {
+                rider.setPhoneNum(cleanPhone);
             }
             riderRepository.save(rider);
             return "Profile updated successfully!";
         } else if (isAlreadyDriver) {
             Driver driver = driverRepository.findByUser_Email(email).get();
-            if (request.getName() != null && !request.getName().trim().isEmpty()) {
-                driver.setDriverName(request.getName().trim());
+            if (cleanName != null) {
+                driver.setDriverName(cleanName);
+                user.setName(cleanName);
+                userRepository.save(user);
             }
             driverRepository.save(driver);
             return "Profile updated successfully!";
+        }
+
+        // Dedicated profile update handling for Administrators
+        if (user.getRole() == Role.ROLE_ADMIN || "ROLE_ADMIN".equalsIgnoreCase(request.getRole())) {
+            if (cleanName != null) {
+                user.setName(cleanName);
+            }
+            userRepository.save(user);
+            return "Admin profile updated successfully!";
         }
 
         String requestedRole = (request.getRole() != null) ? request.getRole().toUpperCase().trim() : "ROLE_RIDER";
@@ -113,13 +136,16 @@ public class UserService {
         }
 
         user.setRole(Role.valueOf(requestedRole));
+        if (cleanName != null) {
+            user.setName(cleanName);
+        }
         userRepository.save(user);
 
         if(requestedRole.equalsIgnoreCase("ROLE_RIDER")){
             Riders rider = riderRepository.findByUsers_Email(email).orElse(new Riders());
             rider.setUsers(user);
-            rider.setRiderName(request.getName() != null && !request.getName().trim().isEmpty() ? request.getName().trim() : "SafarX Rider");
-            rider.setPhoneNum(request.getPhone() != null ? request.getPhone().trim() : "");
+            rider.setRiderName(cleanName != null ? cleanName : "SafarX Rider");
+            rider.setPhoneNum(cleanPhone != null ? cleanPhone : "");
             if (rider.getRiderRating() == null || rider.getRiderRating() == 0.0) {
                 rider.setRiderRating(5.0);
             }
@@ -129,7 +155,7 @@ public class UserService {
         else if ("ROLE_DRIVER".equalsIgnoreCase(requestedRole)) {
             Driver driver = driverRepository.findByUser_Email(email).orElse(new Driver());
             driver.setUser(user);
-            driver.setDriverName(request.getName() != null && !request.getName().trim().isEmpty() ? request.getName().trim() : "SafarX Driver");
+            driver.setDriverName(cleanName != null ? cleanName : "SafarX Driver");
             if (driver.getRating() == 0.0) {
                 driver.setRating(5.0);
             }
