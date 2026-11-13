@@ -44,6 +44,13 @@ public class UserService {
 
         String email = request.getEmail().trim().toLowerCase();
 
+        if (request.getRole() != null) {
+            String requestedRole = request.getRole().trim().toUpperCase();
+            if ("ROLE_ADMIN".equalsIgnoreCase(requestedRole) || "ADMIN".equalsIgnoreCase(requestedRole)) {
+                throw new ForbiddenException("Cannot self-assign Admin role");
+            }
+        }
+
         if(userRepository.findByEmail(email).isPresent()){
             throw new RideConflictException("Error: Email is already registered!");
         }
@@ -94,6 +101,21 @@ public class UserService {
                 ? request.getPhone().trim()
                 : null;
 
+        // 1. Existing Administrator in database: only allow name update, role remains untouched
+        if (user.getRole() == Role.ROLE_ADMIN) {
+            if (cleanName != null) {
+                user.setName(cleanName);
+            }
+            userRepository.save(user);
+            return "Admin profile updated successfully!";
+        }
+
+        // 2. Strict Privilege Escalation Guard: Reject any attempt by non-admins to pass/assign ROLE_ADMIN or ADMIN
+        String rawRequestedRole = request.getRole() != null ? request.getRole().toUpperCase().trim() : null;
+        if ("ROLE_ADMIN".equalsIgnoreCase(rawRequestedRole) || "ADMIN".equalsIgnoreCase(rawRequestedRole)) {
+            throw new ForbiddenException("Cannot self-assign Admin role");
+        }
+
         boolean isAlreadyRider = riderRepository.findByUsers_Email(email).isPresent();
         boolean isAlreadyDriver = driverRepository.findByUser_Email(email).isPresent();
 
@@ -118,14 +140,6 @@ public class UserService {
             }
             driverRepository.save(driver);
             return "Profile updated successfully!";
-        }
-
-        if (user.getRole() == Role.ROLE_ADMIN || "ROLE_ADMIN".equalsIgnoreCase(request.getRole())) {
-            if (cleanName != null) {
-                user.setName(cleanName);
-            }
-            userRepository.save(user);
-            return "Admin profile updated successfully!";
         }
 
         String requestedRole = (request.getRole() != null) ? request.getRole().toUpperCase().trim() : "ROLE_RIDER";
