@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.ridehailing.repository.VehicleRepository;
 import com.ridehailing.service.RideEngine;
-
 import java.util.ArrayList;
 import java.util.List;
 

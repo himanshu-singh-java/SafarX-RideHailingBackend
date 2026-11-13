@@ -2,7 +2,6 @@ package com.ridehailing.service;
 
 import com.ridehailing.model.UserPrincipal;
 import com.ridehailing.model.Users;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

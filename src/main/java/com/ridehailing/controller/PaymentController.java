@@ -3,10 +3,8 @@ package com.ridehailing.controller;
 import com.razorpay.RazorpayException;
 import com.ridehailing.dto.PaymentRequest;
 import com.ridehailing.service.PaymentService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;

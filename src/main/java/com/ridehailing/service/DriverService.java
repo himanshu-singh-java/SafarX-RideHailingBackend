@@ -6,7 +6,6 @@ import com.ridehailing.model.*;
 import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.UserRepository;
 import com.ridehailing.repository.VehicleRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

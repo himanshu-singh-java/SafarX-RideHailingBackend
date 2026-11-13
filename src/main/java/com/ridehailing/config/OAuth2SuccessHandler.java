@@ -11,7 +11,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -25,14 +24,17 @@ import java.util.Optional;
 @Component
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final RiderRepository riderRepository;
+    private final JwtService service;
 
-    @Autowired
-    private RiderRepository riderRepository;
-
-    @Autowired
-    private JwtService service;
+    public OAuth2SuccessHandler(UserRepository userRepository,
+                                RiderRepository riderRepository,
+                                JwtService service){
+        this.userRepository = userRepository;
+        this.riderRepository = riderRepository;
+        this.service = service;
+    }
 
     @Value("${frontend.url:http://localhost:5173}")
     private String frontendBaseUrl;

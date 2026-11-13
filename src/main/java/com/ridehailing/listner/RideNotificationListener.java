@@ -15,7 +15,6 @@ public class RideNotificationListener {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    @Autowired
     public RideNotificationListener(SimpMessagingTemplate messagingTemplate){
         this.messagingTemplate = messagingTemplate;
     }

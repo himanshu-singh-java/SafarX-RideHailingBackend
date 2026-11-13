@@ -110,7 +110,6 @@ public class UserService {
             return "Admin profile updated successfully!";
         }
 
-        // 2. Strict Privilege Escalation Guard: Reject any attempt by non-admins to pass/assign ROLE_ADMIN or ADMIN
         String rawRequestedRole = request.getRole() != null ? request.getRole().toUpperCase().trim() : null;
         if ("ROLE_ADMIN".equalsIgnoreCase(rawRequestedRole) || "ADMIN".equalsIgnoreCase(rawRequestedRole)) {
             throw new ForbiddenException("Cannot self-assign Admin role");
