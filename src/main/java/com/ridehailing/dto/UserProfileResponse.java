@@ -8,5 +8,13 @@ public record UserProfileResponse(
         String name,
         Integer riderId,
         Integer driverId,
-        String status
-) { }
+        String status,
+        String vehicleType,
+        String vehicleModel,
+        String plateNumber,
+        Double rating
+) {
+    public UserProfileResponse(String email, String role, String name, Integer riderId, Integer driverId, String status) {
+        this(email, role, name, riderId, driverId, status, null, null, null, null);
+    }
+}

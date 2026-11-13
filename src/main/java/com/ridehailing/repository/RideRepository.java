@@ -16,12 +16,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-
 @Repository
 public interface RideRepository extends JpaRepository<Rides, Integer> {
 
-    List<Rides> findByRider_RiderIDOrderByRideIdDesc(int riderId);
+    @Query("SELECT r FROM Rides r LEFT JOIN FETCH r.vehicle v LEFT JOIN FETCH v.driver d LEFT JOIN FETCH d.user u WHERE r.rider.riderID = :riderId ORDER BY r.rideId DESC")
+    List<Rides> findByRider_RiderIDOrderByRideIdDesc(@Param("riderId") int riderId);
 
+    @Query("SELECT r FROM Rides r LEFT JOIN FETCH r.vehicle v LEFT JOIN FETCH v.driver d LEFT JOIN FETCH d.user u ORDER BY r.rideId DESC")
     List<Rides> findAllByOrderByRideIdDesc();
 
     boolean existsByRider_RiderIDAndRideStatusIn(int riderId, Collection<RideStatus> statuses);
@@ -56,7 +57,6 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM Rides r WHERE r.rideId = :id")
     Optional<Rides> findByIdForUpdate(@Param("id") int id);
-
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Rides r SET r.currentRadiusIndex = r.currentRadiusIndex + 1, r.lastBroadcastAt = :now " +

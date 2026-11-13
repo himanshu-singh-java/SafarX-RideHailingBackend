@@ -216,7 +216,9 @@ public class RideEngine {
         ride.setRideStatus(RideStatus.IN_PROGRESS);
         ride.setStartTime(LocalDateTime.now());
         Rides savedRide = rideRepository.save(ride);
-
+        if (savedRide.getVehicle() != null && savedRide.getVehicle().getDriver() == null) {
+            savedRide.getVehicle().setDriver(loggedInDriver);
+        }
         RideResponse response = RideMapper.mapToResponse(savedRide);
         publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, response));
 
@@ -313,6 +315,10 @@ public class RideEngine {
         }
 
         Rides updatedRide = rideRepository.findByIdForUpdate(rideId).get();
+        updatedRide.setVehicle(acceptingVehicle);
+        if (acceptingVehicle.getDriver() == null) {
+            acceptingVehicle.setDriver(loggedInDriver);
+        }
         RideResponse response = RideMapper.mapToResponse(updatedRide);
 
         publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, response));
@@ -376,6 +382,7 @@ public class RideEngine {
         return savedRide;
     }
 
+    @Transactional(readOnly = true)
     public List<Rides> getRideHistory(int riderId, String riderEmail){
 
         Riders rider = riderRepository.findById(riderId)
@@ -405,6 +412,7 @@ public class RideEngine {
         rideRepository.deleteById(rideId);
     }
 
+    @Transactional(readOnly = true)
     public List<Rides> getAllGlobalRides() {
         return rideRepository.findAllByOrderByRideIdDesc();
     }

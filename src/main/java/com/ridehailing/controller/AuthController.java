@@ -2,10 +2,14 @@ package com.ridehailing.controller;
 
 import com.ridehailing.dto.UserProfileResponse;
 import com.ridehailing.exception.UnauthorizedException;
+import com.ridehailing.model.Auto;
+import com.ridehailing.model.Bike;
+import com.ridehailing.model.Car;
 import com.ridehailing.model.Driver;
 import com.ridehailing.model.Riders;
 import com.ridehailing.model.Role;
 import com.ridehailing.model.Users;
+import com.ridehailing.model.Vehicles;
 import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.RiderRepository;
 import com.ridehailing.repository.UserRepository;
@@ -22,9 +26,7 @@ import java.security.Principal;
 public class AuthController {
 
     private final UserRepository userRepository;
-
     private final DriverRepository driverRepository;
-
     private final RiderRepository riderRepository;
 
     public AuthController(UserRepository userRepository,
@@ -71,13 +73,37 @@ public class AuthController {
                     ? driver.getDriverName()
                     : user.getName();
 
+            String vehicleType = null;
+            String vehicleModel = null;
+            String plateNumber = null;
+            Double rating = driver != null ? driver.getRating() : 5.0;
+
+            if (driver != null && driver.getVehicle() != null) {
+                Vehicles v = driver.getVehicle();
+                plateNumber = v.getPlateNumber();
+                if (v instanceof Car car) {
+                    vehicleType = "CAR";
+                    vehicleModel = car.getCarModel();
+                } else if (v instanceof Bike bike) {
+                    vehicleType = "BIKE";
+                    vehicleModel = bike.getBikeModel();
+                } else if (v instanceof Auto auto) {
+                    vehicleType = "AUTO";
+                    vehicleModel = auto.getAutoModel();
+                }
+            }
+
             return ResponseEntity.ok(new UserProfileResponse(
                     user.getEmail(),
                     roleName,
                     driverName,
                     null,
                     driver != null ? driver.getDriverId() : null,
-                    driver != null && driver.getDriverStatus() != null ? driver.getDriverStatus().name() : null
+                    driver != null && driver.getDriverStatus() != null ? driver.getDriverStatus().name() : null,
+                    vehicleType,
+                    vehicleModel,
+                    plateNumber,
+                    rating
             ));
         }
 
