@@ -2,9 +2,6 @@ package com.ridehailing.controller;
 
 import com.ridehailing.dto.UserProfileResponse;
 import com.ridehailing.exception.UnauthorizedException;
-import com.ridehailing.model.Auto;
-import com.ridehailing.model.Bike;
-import com.ridehailing.model.Car;
 import com.ridehailing.model.Driver;
 import com.ridehailing.model.Riders;
 import com.ridehailing.model.Role;
@@ -49,7 +46,7 @@ public class AuthController {
                 .orElseThrow(() -> new UnauthorizedException("User account no longer exists"));
 
         Role role = user.getRole();
-        String roleName = role != null ? role.name() : "ROLE_RIDER";
+        String roleName = role != null ? role.name() : Role.ROLE_RIDER.name();
 
         if(role == Role.ROLE_RIDER){
             Riders rider = riderRepository.findByUsers_Email(email).orElse(null);
@@ -69,9 +66,13 @@ public class AuthController {
 
         if (role == Role.ROLE_DRIVER) {
             Driver driver = driverRepository.findByUser_Email(email).orElse(null);
-            String driverName = (driver != null && driver.getDriverName() != null && !driver.getDriverName().isBlank())
-                    ? driver.getDriverName()
-                    : user.getName();
+            String driverName = (user.getName() != null && !user.getName().isBlank())
+                    ? user.getName().trim()
+                    : (driver != null && driver.getDriverName() != null && !driver.getDriverName().isBlank() ? driver.getDriverName().trim() : user.getEmail().split("@")[0]);
+            if (driver != null && user.getName() != null && !user.getName().isBlank() && !user.getName().equals(driver.getDriverName())) {
+                driver.setDriverName(user.getName().trim());
+                driverRepository.save(driver);
+            }
 
             String vehicleType = null;
             String vehicleModel = null;
@@ -81,16 +82,10 @@ public class AuthController {
             if (driver != null && driver.getVehicle() != null) {
                 Vehicles v = driver.getVehicle();
                 plateNumber = v.getPlateNumber();
-                if (v instanceof Car car) {
-                    vehicleType = "CAR";
-                    vehicleModel = car.getCarModel();
-                } else if (v instanceof Bike bike) {
-                    vehicleType = "BIKE";
-                    vehicleModel = bike.getBikeModel();
-                } else if (v instanceof Auto auto) {
-                    vehicleType = "AUTO";
-                    vehicleModel = auto.getAutoModel();
+                if (v.getVehicleCategory() != null) {
+                    vehicleType = v.getVehicleCategory().name();
                 }
+                vehicleModel = v.getVehicleModelName();
             }
 
             return ResponseEntity.ok(new UserProfileResponse(

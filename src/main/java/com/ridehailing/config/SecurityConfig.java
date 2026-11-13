@@ -1,4 +1,5 @@
 package com.ridehailing.config;
+
 import com.ridehailing.filter.JwtFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,7 +25,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
-
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Value("${frontend.url:http://localhost:5173}")
@@ -42,8 +42,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/login/**", "/oauth2/**", "/ws-ride/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/auth/me", "/api/auth/complete-profile").authenticated()
+                        .requestMatchers("/api/auth/**", "/login/**", "/oauth2/**", "/ws-ride/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/driver/onboard").permitAll()
                         .requestMatchers("/api/rider/**", "/api/rides/book", "/api/rides/history/**", "/api/rides/cancel/**", "/api/payment/**").hasRole("RIDER")
                         .requestMatchers("/api/driver/**", "/api/rides/accept/**", "/api/rides/start/**","/api/rides/complete/**").hasRole("DRIVER")

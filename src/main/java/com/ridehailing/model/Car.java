@@ -44,4 +44,14 @@ public class Car extends Vehicles{
         }
         return baseFare + (distanceKm * perKmRate);
     }
+
+    @Override
+    public VehicleCategory getVehicleCategory() {
+        return VehicleCategory.CAR;
+    }
+
+    @Override
+    public String getVehicleModelName() {
+        return this.carModel;
+    }
 }

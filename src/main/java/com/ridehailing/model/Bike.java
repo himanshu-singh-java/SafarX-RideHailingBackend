@@ -38,6 +38,16 @@ public class Bike extends Vehicles {
     }
 
     @Override
+    public VehicleCategory getVehicleCategory() {
+        return VehicleCategory.BIKE;
+    }
+
+    @Override
+    public String getVehicleModelName() {
+        return this.bikeModel;
+    }
+
+    @Override
     public String toString() {
         return "Bike{" +
                 "bikeModel='" + bikeModel + '\'' +

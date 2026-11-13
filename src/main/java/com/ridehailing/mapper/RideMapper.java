@@ -2,9 +2,6 @@ package com.ridehailing.mapper;
 
 import com.ridehailing.dto.RideRequest;
 import com.ridehailing.dto.RideResponse;
-import com.ridehailing.model.Auto;
-import com.ridehailing.model.Bike;
-import com.ridehailing.model.Car;
 import com.ridehailing.model.Driver;
 import com.ridehailing.model.Rides;
 import com.ridehailing.model.Vehicles;
@@ -21,6 +18,10 @@ public class RideMapper {
     }
 
     public static RideResponse mapToResponse(Rides rides){
+        return mapToResponse(rides, null);
+    }
+
+    public static RideResponse mapToResponse(Rides rides, Driver driverOverride){
         if (rides == null) return null;
 
         Integer driverId = null;
@@ -29,55 +30,55 @@ public class RideMapper {
         String driverPhone = null;
         String vehicleNumber = null;
         String vehicleModel = null;
-        String vehicleType = null;
+        String vehicleType = rides.getVehicleType();
         RideResponse.DriverDetails driverDetails = null;
 
         Vehicles v = rides.getVehicle();
         if (v != null) {
             vehicleNumber = v.getPlateNumber();
-            if (v instanceof Car car) {
-                vehicleType = "CAR";
-                vehicleModel = car.getCarModel();
-            } else if (v instanceof Bike bike) {
-                vehicleType = "BIKE";
-                vehicleModel = bike.getBikeModel();
-            } else if (v instanceof Auto auto) {
-                vehicleType = "AUTO";
-                vehicleModel = auto.getAutoModel();
-            } else {
-                vehicleType = rides.getVehicleType();
+            if (v.getVehicleCategory() != null) {
+                vehicleType = v.getVehicleCategory().name();
+            }
+            vehicleModel = v.getVehicleModelName();
+        }
+
+        Driver d = driverOverride;
+        if (d == null && rides.getDriver() != null) {
+            d = rides.getDriver();
+        }
+        if (d == null && v != null) {
+            d = v.getDriver();
+        }
+
+        if (d != null) {
+            driverId = d.getDriverId();
+            driverRating = d.getRating();
+
+            if (d.getUser() != null && d.getUser().getName() != null && !d.getUser().getName().isBlank()) {
+                driverName = d.getUser().getName().trim();
+            } else if (d.getDriverName() != null && !d.getDriverName().isBlank()) {
+                driverName = d.getDriverName().trim();
+            } else if (d.getUser() != null && d.getUser().getEmail() != null) {
+                driverName = d.getUser().getEmail().split("@")[0];
             }
 
-            Driver d = v.getDriver();
-            if (d != null) {
-                driverId = d.getDriverId();
-                driverRating = d.getRating();
-                if (d.getDriverName() != null && !d.getDriverName().isBlank()) {
-                    driverName = d.getDriverName().trim();
-                } else if (d.getUser() != null && d.getUser().getName() != null && !d.getUser().getName().isBlank()) {
-                    driverName = d.getUser().getName().trim();
-                } else if (d.getUser() != null && d.getUser().getEmail() != null) {
-                    driverName = d.getUser().getEmail().split("@")[0];
-                }
-
-                if (d.getUser() != null && d.getUser().getEmail() != null) {
-                    driverPhone = d.getUser().getEmail();
-                }
-
-                driverDetails = new RideResponse.DriverDetails(
-                        driverId,
-                        driverId,
-                        driverName,
-                        driverName,
-                        driverRating,
-                        driverPhone,
-                        vehicleNumber,
-                        vehicleNumber,
-                        vehicleModel,
-                        vehicleModel,
-                        vehicleType
-                );
+            if (d.getPhone() != null && !d.getPhone().isBlank()) {
+                driverPhone = d.getPhone().trim();
             }
+
+            driverDetails = new RideResponse.DriverDetails(
+                    driverId,
+                    driverId,
+                    driverName,
+                    driverName,
+                    driverRating,
+                    driverPhone,
+                    vehicleNumber,
+                    vehicleNumber,
+                    vehicleModel,
+                    vehicleModel,
+                    vehicleType
+            );
         }
 
         return new RideResponse(

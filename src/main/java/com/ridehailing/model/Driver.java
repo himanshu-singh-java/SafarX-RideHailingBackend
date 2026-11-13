@@ -16,6 +16,9 @@ public class Driver {
     @Column(name = "driver_name")
     private String driverName;
 
+    @Column(name = "phone")
+    private String phone;
+
     @Column(name = "rating")
     private double rating;
 
@@ -55,6 +58,14 @@ public class Driver {
 
     public void setDriverName(String driverName) {
         this.driverName = driverName;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public double getRating() {

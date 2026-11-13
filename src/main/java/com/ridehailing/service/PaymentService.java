@@ -16,6 +16,7 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 @Slf4j
 @Service
 public class PaymentService {
@@ -35,7 +36,7 @@ public class PaymentService {
     @Transactional
     public String createOrder(int rideId, String riderEmail) throws RazorpayException {
 
-        Rides ride = rideRepository.findById(rideId)
+        Rides ride = rideRepository.findByIdForUpdate(rideId)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: Ride not found!"));
 
         if(!ride.getRider().getUsers().getEmail().equals(riderEmail)){
@@ -60,7 +61,7 @@ public class PaymentService {
 
         if(ride.getRazorPayOrderId() != null && !ride.getRazorPayOrderId().isBlank()){
             Order existingOrder = client.orders.fetch(ride.getRazorPayOrderId());
-            return  existingOrder.toString();
+            return existingOrder.toString();
         }
 
         JSONObject orderRequest = new JSONObject();
@@ -79,10 +80,16 @@ public class PaymentService {
 
     @Transactional
     public boolean verifySignature(int rideId, String paymentId, String signature, String riderEmail){
-        try{
+        if (paymentId == null || paymentId.isBlank()) {
+            throw new IllegalArgumentException("Error: razorpay_payment_id is required and cannot be blank.");
+        }
+        if (signature == null || signature.isBlank()) {
+            throw new IllegalArgumentException("Error: razorpay_signature is required and cannot be blank.");
+        }
 
-            Rides ride = rideRepository.findById(rideId).
-                    orElseThrow(() -> new ResourceNotFoundException("Error: Ride not found!"));
+        try{
+            Rides ride = rideRepository.findByIdForUpdate(rideId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Error: Ride not found!"));
 
             if(!ride.getRider().getUsers().getEmail().equals(riderEmail)){
                 throw new ForbiddenException("Error: Unauthorized! You can only verify payment for your own rides.");
@@ -94,14 +101,14 @@ public class PaymentService {
 
             String dbOrderId = ride.getRazorPayOrderId();
 
-            if(dbOrderId == null || dbOrderId.isEmpty()){
+            if(dbOrderId == null || dbOrderId.isBlank()){
                 throw new RideConflictException("Error: No payment order was generated for this ride.");
             }
 
             JSONObject options = new JSONObject();
             options.put("razorpay_order_id", dbOrderId);
-            options.put("razorpay_payment_id", paymentId);
-            options.put("razorpay_signature", signature);
+            options.put("razorpay_payment_id", paymentId.trim());
+            options.put("razorpay_signature", signature.trim());
 
             boolean isAuthentic = Utils.verifyPaymentSignature(options, keySecret);
 

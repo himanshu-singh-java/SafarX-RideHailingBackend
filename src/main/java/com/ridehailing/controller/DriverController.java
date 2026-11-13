@@ -2,13 +2,9 @@ package com.ridehailing.controller;
 
 import com.ridehailing.dto.DriverOnboardingRequest;
 import com.ridehailing.dto.VehicleRegistrationRequest;
-import com.ridehailing.exception.ResourceNotFoundException;
-import com.ridehailing.exception.RideConflictException;
 import com.ridehailing.model.Driver;
 import com.ridehailing.model.VehicleStatus;
 import com.ridehailing.model.Vehicles;
-import com.ridehailing.repository.DriverRepository;
-import com.ridehailing.repository.VehicleRepository;
 import com.ridehailing.service.DriverService;
 import com.ridehailing.service.JwtService;
 import jakarta.validation.Valid;
@@ -25,21 +21,12 @@ import java.util.Map;
 public class DriverController {
 
     private final DriverService driverService;
-
     private final JwtService jwtService;
 
-    private final DriverRepository driverRepository;
-
-    private final VehicleRepository vehicleRepository;
-
     public DriverController(DriverService driverService,
-                            JwtService jwtService,
-                            DriverRepository driverRepository,
-                            VehicleRepository vehicleRepository){
+                            JwtService jwtService){
         this.driverService = driverService;
         this.jwtService = jwtService;
-        this.driverRepository = driverRepository;
-        this.vehicleRepository = vehicleRepository;
     }
 
     @PostMapping("/onboard")
@@ -60,79 +47,27 @@ public class DriverController {
     @Transactional
     @PostMapping("/vehicle")
     public ResponseEntity<?> registerVehicle(@Valid @RequestBody VehicleRegistrationRequest request, Principal principal){
-        Driver driver = driverRepository.findByUser_Email(principal.getName()).
-                orElseThrow(() -> new ResourceNotFoundException("Driver profile not found"));
-
-        if(driver.getVehicle() != null){
-            throw new RideConflictException("Vehicle is already registered for this driver.");
-        }
-
-        Vehicles vehicle = driverService.buildVehicle(request.toOnboardingRequest(), driver);
-        driver.setVehicle(vehicle);
-
-        vehicleRepository.save(vehicle);
-
-        driverRepository.updateStatusIfNotOnRide(driver.getDriverId(), VehicleStatus.AVAILABLE);
-
+        driverService.registerVehicleForDriver(principal.getName(), request);
         return ResponseEntity.ok(Map.of("message", "Vehicle registered successfully and driver is now AVAILABLE!"));
     }
 
     @Transactional
     @PutMapping("/vehicle")
     public ResponseEntity<?> updateVehicle(@Valid @RequestBody VehicleRegistrationRequest request, Principal principal){
-        Driver driver = driverRepository.findByUser_Email(principal.getName()).
-                orElseThrow(() -> new ResourceNotFoundException("Driver profile not found"));
-
-        if(driver.getDriverStatus() == VehicleStatus.ON_RIDE){
-            throw new RideConflictException("Cannot change vehicle details while on an active ride.");
-        }
-
-        Vehicles existingVehicle = driver.getVehicle();
-        if (existingVehicle != null) {
-            existingVehicle.setDriver(null);
-            driver.setVehicle(null);
-            driverRepository.saveAndFlush(driver);
-            vehicleRepository.delete(existingVehicle);
-            vehicleRepository.flush();
-        }
-
-        Vehicles vehicle = driverService.buildVehicle(request.toOnboardingRequest(), driver);
-        vehicle = vehicleRepository.save(vehicle);
-        driver.setVehicle(vehicle);
-        driverRepository.save(driver);
-
-        String model = request.getCarModel() != null ? request.getCarModel() : (request.getBikeModel() != null ? request.getBikeModel() : request.getAutoModel());
+        Vehicles updatedVehicle = driverService.updateDriverVehicle(principal.getName(), request);
 
         return ResponseEntity.ok(Map.of(
                 "message", "Vehicle details updated successfully!",
-                "vehicleType", request.getVehicleType(),
-                "model", model != null ? model : "Standard Vehicle",
-                "plateNumber", request.getPlateNumber()
+                "vehicleType", updatedVehicle.getVehicleCategory().name(),
+                "model", updatedVehicle.getVehicleModelName(),
+                "plateNumber", updatedVehicle.getPlateNumber()
         ));
     }
 
     @Transactional
     @PatchMapping("/status")
     public ResponseEntity<?> updateStatus(@RequestParam VehicleStatus status, Principal principal){
-        if(status ==  VehicleStatus.ON_RIDE){
-            throw new IllegalArgumentException("Cannot manually set status to ON_RIDE.");
-        }
-
-        Driver driver = driverRepository.findByUser_Email(principal.getName())
-                .orElseThrow(() -> new ResourceNotFoundException("Driver profile not found"));
-
-        int updated = driverRepository.updateStatusIfNotOnRide(driver.getDriverId(), status);
-
-        if(updated == 0){
-            if (status == VehicleStatus.AVAILABLE) {
-                int recovered = driverRepository.recoverStuckOnRide(driver.getDriverId());
-                if (recovered > 0) {
-                    return ResponseEntity.ok(Map.of("message", "Driver status recovered to AVAILABLE (no active trip)."));
-                }
-            }
-            return ResponseEntity.badRequest().body(Map.of("message", "Cannot change status while on an active ride."));
-        }
-
-        return ResponseEntity.ok(Map.of("message", "Driver status updated to " + status));
+        String message = driverService.updateDriverStatus(principal.getName(), status);
+        return ResponseEntity.ok(Map.of("message", message));
     }
 }

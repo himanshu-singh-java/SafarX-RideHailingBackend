@@ -17,7 +17,7 @@ public abstract class Vehicles {
     private String plateNumber;
 
     @JsonIgnore
-    @OneToOne(mappedBy = "vehicle", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToOne(mappedBy = "vehicle", fetch = FetchType.LAZY)
     private Driver driver;
 
     public Vehicles(){
@@ -25,6 +25,10 @@ public abstract class Vehicles {
     }
 
     public abstract double calculateFare(double distanceKm);
+
+    public abstract VehicleCategory getVehicleCategory();
+
+    public abstract String getVehicleModelName();
 
     public int getVehicleId() {
         return vehicleId;

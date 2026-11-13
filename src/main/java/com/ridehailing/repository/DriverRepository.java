@@ -43,6 +43,4 @@ public interface DriverRepository extends JpaRepository<Driver, Integer> {
            "AND r.rideStatus IN (com.ridehailing.model.RideStatus.ACCEPTED, com.ridehailing.model.RideStatus.IN_PROGRESS))")
     int recoverStuckOnRide(@Param("id") int id);
 
-
-
 }

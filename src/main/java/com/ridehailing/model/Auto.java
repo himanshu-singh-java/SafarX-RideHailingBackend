@@ -36,6 +36,16 @@ public class Auto extends Vehicles{
     }
 
     @Override
+    public VehicleCategory getVehicleCategory(){
+        return VehicleCategory.AUTO;
+    }
+
+    @Override
+    public String getVehicleModelName() {
+        return this.autoModel;
+    }
+
+    @Override
     public String toString() {
         return "Auto{" +
                 "autoModel='" + autoModel + '\'' +

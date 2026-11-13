@@ -1,25 +1,26 @@
 package com.ridehailing.service;
+
+import com.ridehailing.dto.RideRequest;
 import com.ridehailing.dto.RideResponse;
 import com.ridehailing.event.RideBroadcastEvent;
 import com.ridehailing.event.RideNotificationEvent;
 import com.ridehailing.exception.ForbiddenException;
 import com.ridehailing.exception.ResourceNotFoundException;
 import com.ridehailing.exception.RideConflictException;
-import com.ridehailing.repository.*;
-import lombok.extern.slf4j.Slf4j;
-import com.ridehailing.dto.RideRequest;
 import com.ridehailing.mapper.RideMapper;
 import com.ridehailing.model.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ridehailing.repository.*;
+import com.ridehailing.util.LocationUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.ridehailing.util.LocationUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -51,7 +52,38 @@ public class RideEngine {
         this.publisher = publisher;
     }
 
+    private VehicleCategory parseVehicleCategory(String rawType) {
+        if (rawType == null || rawType.isBlank()) {
+            throw new IllegalArgumentException("Vehicle type is required.");
+        }
+        try {
+            return VehicleCategory.valueOf(rawType.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid vehicle type: " + rawType);
+        }
+    }
+
+    private double calculateQuotedFare(VehicleCategory category, double distanceKm) {
+        double rawFare = switch (category) {
+            case CAR -> 50.0 + (distanceKm * 12.0);
+            case BIKE -> 20.0 + (distanceKm * 6.0);
+            case AUTO -> 50.0 + (distanceKm * 15.0);
+        };
+        return Math.round(rawFare * 100.0) / 100.0;
+    }
+
     public RideResponse bookRide(RideRequest request, String email){
+
+        VehicleCategory category = parseVehicleCategory(request.getVehicleType());
+
+        double estimatedDistance = LocationUtils.calculateDistance(
+                request.getPickupLat(), request.getPickupLng(),
+                request.getDropLat(), request.getDropLng()
+        );
+
+        if (estimatedDistance < 0.05) {
+            throw new IllegalArgumentException("Error: Pickup and drop-off locations cannot be identical or too close.");
+        }
 
         Riders rider = riderRepository.findWithLockByUsers_Email(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: Rider profile not found for this user!"));
@@ -64,18 +96,15 @@ public class RideEngine {
             throw new RideConflictException("Error: You already have an active ride! Please complete or cancel it first.");
         }
 
-        double estimatedDistance = LocationUtils.calculateDistance(request.getPickupLat(),
-                request.getPickupLng(), request.getDropLat(), request.getDropLng());
-
+        double quotedFare = calculateQuotedFare(category, estimatedDistance);
 
         Rides newRide = RideMapper.mapToEntity(request);
         newRide.setRider(rider);
         newRide.setVehicle(null);
         newRide.setDistanceKm(estimatedDistance);
-        newRide.setFare(0.0);
+        newRide.setFare(quotedFare);
         newRide.setRideStatus(RideStatus.REQUESTED);
-
-        newRide.setVehicleType(request.getVehicleType());
+        newRide.setVehicleType(category.name());
         newRide.setCurrentRadiusIndex(0);
         newRide.setLastBroadcastAt(LocalDateTime.now());
 
@@ -98,7 +127,6 @@ public class RideEngine {
         }
 
         int radiusIndex = ride.getCurrentRadiusIndex();
-
         int maxRadius = SEARCH_RADII[SEARCH_RADII.length - 1];
 
         List<Vehicles> allVehiclesInMaxRadius = vehicleRepository.findAllAvailableVehiclesForRide(
@@ -126,8 +154,9 @@ public class RideEngine {
                 continue;
             }
 
-            double fareToSave = (ride.getFare() == null || ride.getFare() == 0.0) ?
-                    availableVehicles.get(0).calculateFare(ride.getDistanceKm()) : ride.getFare();
+            double fareToSave = (ride.getFare() != null && ride.getFare() > 0.0)
+                    ? ride.getFare()
+                    : calculateQuotedFare(parseVehicleCategory(ride.getVehicleType()), ride.getDistanceKm());
 
             int updatedRows = rideRepository.updateBroadcastStateAtDB(
                     rideId,
@@ -148,7 +177,9 @@ public class RideEngine {
 
             for (Vehicles vehicles : availableVehicles) {
                 int driverId = vehicles.getDriver().getDriverId();
-                rideNotifiedDriverRepository.save(new RideNotifiedDriver(rideId, driverId));
+                if (!rideNotifiedDriverRepository.existsByRideIdAndDriverId(rideId, driverId)) {
+                    rideNotifiedDriverRepository.save(new RideNotifiedDriver(rideId, driverId));
+                }
                 driversToNotify.add(driverId);
             }
 
@@ -198,14 +229,15 @@ public class RideEngine {
     @Transactional
     public RideResponse startRide(int rideId, String driverEmail){
 
-        Rides ride = rideRepository.findByIdForUpdate(rideId).
-                orElseThrow(() -> new ResourceNotFoundException("Error: Ride not found!"));
+        Rides ride = rideRepository.findByIdForUpdate(rideId)
+                .orElseThrow(() -> new ResourceNotFoundException("Error: Ride not found!"));
 
         Driver loggedInDriver = driverRepository.findByUser_Email(driverEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: Driver profile not found!"));
 
-        if(ride.getVehicle() == null || ride.getVehicle().getDriver() == null
-        || ride.getVehicle().getDriver().getDriverId() != loggedInDriver.getDriverId()){
+        boolean isAssignedDriver = (ride.getDriver() != null && ride.getDriver().getDriverId() == loggedInDriver.getDriverId())
+                || (ride.getVehicle() != null && ride.getVehicle().getDriver() != null && ride.getVehicle().getDriver().getDriverId() == loggedInDriver.getDriverId());
+        if (!isAssignedDriver) {
             throw new ForbiddenException("Error: Unauthorized! You can only start rides assigned to you.");
         }
 
@@ -215,18 +247,20 @@ public class RideEngine {
 
         ride.setRideStatus(RideStatus.IN_PROGRESS);
         ride.setStartTime(LocalDateTime.now());
-        Rides savedRide = rideRepository.save(ride);
-        if (savedRide.getVehicle() != null && savedRide.getVehicle().getDriver() == null) {
-            savedRide.getVehicle().setDriver(loggedInDriver);
+        ride.setDriver(loggedInDriver);
+        if (ride.getVehicle() != null) {
+            ride.getVehicle().setDriver(loggedInDriver);
         }
-        RideResponse response = RideMapper.mapToResponse(savedRide);
+        Rides savedRide = rideRepository.save(ride);
+
+        RideResponse response = RideMapper.mapToResponse(savedRide, loggedInDriver);
         publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, response));
 
         return response;
     }
 
     @Transactional
-    public Rides cancelRide(int rideId, String riderEmail){
+    public RideResponse cancelRide(int rideId, String riderEmail){
 
         Rides ride = rideRepository.findByIdForUpdate(rideId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ride not found!"));
@@ -235,14 +269,15 @@ public class RideEngine {
             throw new ForbiddenException("Error: Unauthorized! You can only cancel your own rides.");
         }
 
-        if(ride.getRideStatus() == RideStatus.IN_PROGRESS ||ride.getRideStatus() == RideStatus.COMPLETED || ride.getRideStatus() == RideStatus.CANCELLED){
+        if(ride.getRideStatus() == RideStatus.IN_PROGRESS || ride.getRideStatus() == RideStatus.COMPLETED || ride.getRideStatus() == RideStatus.CANCELLED){
             throw new RideConflictException("Error: Ride is already " + ride.getRideStatus() + " and cannot be cancelled.");
         }
 
-        if((ride.getRideStatus() == RideStatus.ACCEPTED)
-        && ride.getVehicle() != null && ride.getVehicle().getDriver() != null){
+        if(ride.getRideStatus() == RideStatus.ACCEPTED
+                && ride.getVehicle() != null && ride.getVehicle().getDriver() != null){
             Driver assignedDriver = ride.getVehicle().getDriver();
             assignedDriver.setDriverStatus(VehicleStatus.AVAILABLE);
+            driverRepository.save(assignedDriver);
         }
 
         ride.setRideStatus(RideStatus.CANCELLED);
@@ -255,8 +290,9 @@ public class RideEngine {
             publisher.publishEvent(new RideNotificationEvent("/topic/driver/" + nd.getDriverId(), cancelEvent));
         }
 
-        publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, RideMapper.mapToResponse(cancelledRide)));
-        return cancelledRide;
+        RideResponse response = RideMapper.mapToResponse(cancelledRide);
+        publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, response));
+        return response;
     }
 
     @Transactional
@@ -282,22 +318,26 @@ public class RideEngine {
             throw new RideConflictException("Error: Unauthorized! You were not notified for this ride or your vehicle type doesn't match.");
         }
 
-        Rides rideForDistance = rideRepository.findByIdForUpdate(rideId)
+        Rides rideForCheck = rideRepository.findByIdForUpdate(rideId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ride not found!"));
 
-        if(rideForDistance.getRideStatus() == RideStatus.CANCELLED){
+        if(rideForCheck.getRideStatus() == RideStatus.CANCELLED){
             throw new RideConflictException("Sorry, this ride has been cancelled by the rider.");
         }
 
-        double finalFare = acceptingVehicle.calculateFare(rideForDistance.getDistanceKm());
+        if (loggedInDriver.getUser() != null && loggedInDriver.getUser().getName() != null && !loggedInDriver.getUser().getName().isBlank()) {
+            if (!loggedInDriver.getUser().getName().equals(loggedInDriver.getDriverName())) {
+                loggedInDriver.setDriverName(loggedInDriver.getUser().getName().trim());
+                driverRepository.save(loggedInDriver);
+            }
+        }
 
         int rideClaimed = rideRepository.claimRideAtDB(
                 rideId,
                 acceptingVehicle,
-                finalFare,
+                loggedInDriver,
                 RideStatus.ACCEPTED,
-                RideStatus.REQUESTED,
-                LocalDateTime.now()
+                RideStatus.REQUESTED
         );
 
         if(rideClaimed != 1){
@@ -314,15 +354,14 @@ public class RideEngine {
             throw new RideConflictException("Driver is not available or already on another ride.");
         }
 
-        Rides updatedRide = rideRepository.findByIdForUpdate(rideId).get();
+        Rides updatedRide = rideRepository.findByIdForUpdate(rideId).orElseThrow();
+        acceptingVehicle.setDriver(loggedInDriver);
         updatedRide.setVehicle(acceptingVehicle);
-        if (acceptingVehicle.getDriver() == null) {
-            acceptingVehicle.setDriver(loggedInDriver);
-        }
-        RideResponse response = RideMapper.mapToResponse(updatedRide);
+        updatedRide.setDriver(loggedInDriver);
+        RideResponse response = RideMapper.mapToResponse(updatedRide, loggedInDriver);
 
         publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, response));
-        log.info("Ride {} ACCEPTED by Driver {}. Final Fare locked. Notified Rider.", rideId, loggedInDriver.getDriverId());
+        log.info("Ride {} ACCEPTED by Driver {}. Fare remained locked at {}.", rideId, loggedInDriver.getDriverId(), updatedRide.getFare());
 
         List<RideNotifiedDriver> allNotified = rideNotifiedDriverRepository.findByRideId(rideId);
         Map<String, Object> rideTakenEvent = new HashMap<>();
@@ -335,21 +374,22 @@ public class RideEngine {
             }
         }
 
-        return  response;
+        return response;
     }
 
     @Transactional
-    public Rides completeRide(int rideId, String driverEmail){
+    public RideResponse completeRide(int rideId, String driverEmail){
 
         Rides ride = rideRepository.findByIdForUpdate(rideId)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: Ride with ID " + rideId + " not found!"));
 
         Driver loggedInDriver = driverRepository.findByUser_Email(driverEmail).orElseThrow(
-                () -> new ResourceNotFoundException("Error: Driver profile not found!"
-        ));
+                () -> new ResourceNotFoundException("Error: Driver profile not found!")
+        );
 
-        if(ride.getVehicle() == null || ride.getVehicle().getDriver() == null ||
-        ride.getVehicle().getDriver().getDriverId() != loggedInDriver.getDriverId()){
+        boolean isAssignedDriver = (ride.getDriver() != null && ride.getDriver().getDriverId() == loggedInDriver.getDriverId())
+                || (ride.getVehicle() != null && ride.getVehicle().getDriver() != null && ride.getVehicle().getDriver().getDriverId() == loggedInDriver.getDriverId());
+        if (!isAssignedDriver) {
             throw new ForbiddenException("Error: Unauthorized! You can only complete rides assigned to you.");
         }
 
@@ -363,27 +403,27 @@ public class RideEngine {
 
         ride.setRideStatus(RideStatus.COMPLETED);
         ride.setEndTime(LocalDateTime.now());
+        ride.setDriver(loggedInDriver);
 
-        Vehicles vehicles = ride.getVehicle();
-        if (vehicles != null && vehicles.getDriver() != null) {
-            Driver driver = vehicles.getDriver();
-            driver.setDriverStatus(VehicleStatus.AVAILABLE);
-            driver.setCurrentLat(ride.getDropLat());
-            driver.setCurrentLng(ride.getDropLng());
-            vehicleRepository.save(vehicles);
-        }
+        Driver driver = loggedInDriver;
+        driver.setDriverStatus(VehicleStatus.AVAILABLE);
+        driver.setCurrentLat(ride.getDropLat());
+        driver.setCurrentLng(ride.getDropLng());
+        driverRepository.save(driver);
 
         Rides savedRide = rideRepository.save(ride);
-
-        RideResponse compResponse = RideMapper.mapToResponse(savedRide);
+        if (savedRide.getVehicle() != null) {
+            savedRide.getVehicle().setDriver(loggedInDriver);
+        }
+        RideResponse compResponse = RideMapper.mapToResponse(savedRide, loggedInDriver);
 
         publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + rideId, compResponse));
 
-        return savedRide;
+        return compResponse;
     }
 
     @Transactional(readOnly = true)
-    public List<Rides> getRideHistory(int riderId, String riderEmail){
+    public List<RideResponse> getRideHistory(int riderId, String riderEmail){
 
         Riders rider = riderRepository.findById(riderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: Rider with ID " + riderId + " not found!"));
@@ -392,9 +432,13 @@ public class RideEngine {
             throw new ForbiddenException("Error: Unauthorized! You can only view your own ride history.");
         }
 
-        return  rideRepository.findByRider_RiderIDOrderByRideIdDesc(riderId);
+        return rideRepository.findByRider_RiderIDOrderByRideIdDesc(riderId)
+                .stream()
+                .map(RideMapper::mapToResponse)
+                .collect(Collectors.toList());
     }
 
+    @Transactional
     public void deleteRide(int rideId) {
 
         Rides rides = rideRepository.findByIdForUpdate(rideId)
@@ -404,32 +448,51 @@ public class RideEngine {
             Vehicles vehicles = rides.getVehicle();
 
             if(vehicles != null && vehicles.getDriver() != null){
-                vehicles.getDriver().setDriverStatus(VehicleStatus.AVAILABLE);
-                vehicleRepository.save(vehicles);
+                Driver assignedDriver = vehicles.getDriver();
+                assignedDriver.setDriverStatus(VehicleStatus.AVAILABLE);
+                driverRepository.save(assignedDriver);
             }
         }
 
+        rideRepository.deleteNotifiedDriversByRideId(rideId);
         rideRepository.deleteById(rideId);
     }
 
     @Transactional(readOnly = true)
-    public List<Rides> getAllGlobalRides() {
-        return rideRepository.findAllByOrderByRideIdDesc();
+    public List<RideResponse> getAllGlobalRides() {
+        return rideRepository.findAllByOrderByRideIdDesc()
+                .stream()
+                .map(RideMapper::mapToResponse)
+                .collect(Collectors.toList());
     }
 
+    @Transactional
     public Rides completeRideByVehicleId(int vehicleId){
 
-        Rides activeRide = rideRepository.findActiveRideByVehicleId(vehicleId)
-                .orElseThrow(() -> new RuntimeException("No Active Ride found for Vehicle Id :" + vehicleId));
+        List<Rides> activeRides = rideRepository.findActiveRidesByVehicleId(vehicleId);
+        if (activeRides.isEmpty()) {
+            throw new ResourceNotFoundException("No Active Ride found for Vehicle Id: " + vehicleId);
+        }
+
+        Rides activeRide = activeRides.get(0);
+        if (activeRide.getRideStatus() != RideStatus.IN_PROGRESS) {
+            throw new RideConflictException("Ride must be IN_PROGRESS to complete. Current state: " + activeRide.getRideStatus());
+        }
 
         activeRide.setRideStatus(RideStatus.COMPLETED);
         activeRide.setEndTime(LocalDateTime.now());
 
         Vehicles vehicles = activeRide.getVehicle();
         if(vehicles != null && vehicles.getDriver() != null){
-            vehicles.getDriver().setDriverStatus(VehicleStatus.AVAILABLE);
-            vehicleRepository.save(vehicles);
+            Driver driver = vehicles.getDriver();
+            driver.setDriverStatus(VehicleStatus.AVAILABLE);
+            driver.setCurrentLat(activeRide.getDropLat());
+            driver.setCurrentLng(activeRide.getDropLng());
+            driverRepository.save(driver);
         }
-        return rideRepository.save(activeRide);
+
+        Rides savedRide = rideRepository.save(activeRide);
+        publisher.publishEvent(new RideNotificationEvent("/topic/ride/" + savedRide.getRideId(), RideMapper.mapToResponse(savedRide)));
+        return savedRide;
     }
 }

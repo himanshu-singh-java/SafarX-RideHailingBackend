@@ -24,6 +24,10 @@ public class Rides {
     @ManyToOne(fetch = FetchType.LAZY)
     private Vehicles vehicle;
 
+    @JoinColumn(name = "driver_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Driver driver;
+
     @Column(name = "distance_km")
     private Double distanceKm;
 
@@ -208,4 +212,11 @@ public class Rides {
         this.razorPayOrderId = razorPayOrderId;
     }
 
+    public Driver getDriver() {
+        return driver;
+    }
+
+    public void setDriver(Driver driver) {
+        this.driver = driver;
+    }
 }

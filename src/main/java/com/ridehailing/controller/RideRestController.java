@@ -1,20 +1,18 @@
 package com.ridehailing.controller;
 
-import com.ridehailing.exception.UnauthorizedException;
-import com.ridehailing.mapper.RideMapper;
 import com.ridehailing.dto.RideRequest;
 import com.ridehailing.dto.RideResponse;
-import com.ridehailing.model.Rides;
+import com.ridehailing.exception.UnauthorizedException;
+import com.ridehailing.service.RideEngine;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.ridehailing.service.RideEngine;
+
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/rides")
@@ -27,32 +25,20 @@ public class RideRestController {
     }
 
     @GetMapping("/history/{riderId}")
-    public ResponseEntity<?> getAllRides(@PathVariable int riderId, Principal principal){
-
+    public ResponseEntity<List<RideResponse>> getAllRides(@PathVariable int riderId, Principal principal){
         if (principal == null) {
             throw new UnauthorizedException("Error: Unauthorized! Please login first.");
         }
-
-        String riderEmail = principal.getName();
-        List<Rides> rideHistory = rideEngine.getRideHistory(riderId, riderEmail);
-
-        List<RideResponse> responseList = rideHistory.stream()
-                .map(RideMapper::mapToResponse)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(responseList);
+        return ResponseEntity.ok(rideEngine.getRideHistory(riderId, principal.getName()));
     }
 
     @PostMapping("/book")
-    public ResponseEntity<?> bookRide(@Valid @RequestBody RideRequest request, Principal principal) {
-
+    public ResponseEntity<RideResponse> bookRide(@Valid @RequestBody RideRequest request, Principal principal) {
         if (principal == null) {
             throw new UnauthorizedException("Error: Unauthorized! Please login first.");
         }
 
-        String email = principal.getName();
-
-        RideResponse response = rideEngine.bookRide(request, email);
+        RideResponse response = rideEngine.bookRide(request, principal.getName());
 
         if("CANCELLED".equals(response.getStatus())){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
@@ -62,56 +48,39 @@ public class RideRestController {
     }
 
     @PutMapping("/accept/{rideId}")
-    public ResponseEntity<?> acceptRide(@PathVariable int rideId, Principal principal){
+    public ResponseEntity<RideResponse> acceptRide(@PathVariable int rideId, Principal principal){
         if (principal == null) {
             throw new UnauthorizedException("Error: Unauthorized! Please login first.");
         }
-        String driverEmail = principal.getName();
-        RideResponse response = rideEngine.acceptRide(rideId, driverEmail);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(rideEngine.acceptRide(rideId, principal.getName()));
     }
 
     @PutMapping("/start/{rideId}")
-    public ResponseEntity<?> startRide(@PathVariable int rideId, Principal principal) {
-
+    public ResponseEntity<RideResponse> startRide(@PathVariable int rideId, Principal principal) {
         if (principal == null) {
             throw new UnauthorizedException("Error: Unauthorized! Please login first.");
         }
-
-        String driverEmail = principal.getName();
-        return ResponseEntity.ok(rideEngine.startRide(rideId, driverEmail));
+        return ResponseEntity.ok(rideEngine.startRide(rideId, principal.getName()));
     }
 
     @PutMapping("/complete/{rideId}")
-    public ResponseEntity<?> completeRide(@PathVariable int rideId, Principal principal){
-
+    public ResponseEntity<RideResponse> completeRide(@PathVariable int rideId, Principal principal){
         if (principal == null) {
             throw new UnauthorizedException("Error: Unauthorized! Please login first.");
         }
-
-        String driverEmail = principal.getName();
-
-        Rides rides = rideEngine.completeRide(rideId, driverEmail);
-        RideResponse compResponse = RideMapper.mapToResponse(rides);
-
-        return ResponseEntity.ok(compResponse);
+        return ResponseEntity.ok(rideEngine.completeRide(rideId, principal.getName()));
     }
 
     @PutMapping("/cancel/{rideId}")
-    public ResponseEntity<?> cancelRide(@PathVariable int rideId, Principal principal){
+    public ResponseEntity<RideResponse> cancelRide(@PathVariable int rideId, Principal principal){
         if(principal == null){
             throw new UnauthorizedException("Error: Unauthorized! Please login first.");
         }
-
-        String riderEmail = principal.getName();
-        Rides cancelledRide = rideEngine.cancelRide(rideId, riderEmail);
-
-        return ResponseEntity.ok(RideMapper.mapToResponse(cancelledRide));
+        return ResponseEntity.ok(rideEngine.cancelRide(rideId, principal.getName()));
     }
 
     @DeleteMapping("/delete/{rideId}")
     public ResponseEntity<?> deleteRide(@PathVariable int rideId) {
-
         rideEngine.deleteRide(rideId);
 
         Map<String, String> response = new HashMap<>();
@@ -121,13 +90,7 @@ public class RideRestController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<?> getAllRidesGlobal(){
-        List<Rides> allRides = rideEngine.getAllGlobalRides();
-
-        List<RideResponse> responseList = allRides.stream()
-                .map(RideMapper::mapToResponse)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(responseList);
+    public ResponseEntity<List<RideResponse>> getAllRidesGlobal(){
+        return ResponseEntity.ok(rideEngine.getAllGlobalRides());
     }
 }

@@ -1,9 +1,6 @@
 package com.ridehailing.controller;
 
 import com.ridehailing.dto.LocationUpdateDto;
-import com.ridehailing.model.Auto;
-import com.ridehailing.model.Bike;
-import com.ridehailing.model.Car;
 import com.ridehailing.model.Driver;
 import com.ridehailing.model.RideStatus;
 import com.ridehailing.model.Rides;
@@ -36,9 +33,21 @@ public class LocationSocketController {
         this.rideRepository = rideRepository;
     }
 
+    private boolean isValidCoordinates(double lat, double lng) {
+        return !Double.isNaN(lat) && !Double.isInfinite(lat)
+                && !Double.isNaN(lng) && !Double.isInfinite(lng)
+                && lat >= -90.0 && lat <= 90.0
+                && lng >= -180.0 && lng <= 180.0;
+    }
+
     @Transactional
     @MessageMapping("/update-location")
     public void receiveAndForwardLocation(@Payload LocationUpdateDto location, SimpMessageHeaderAccessor headerAccessor){
+
+        if (location == null || !isValidCoordinates(location.getLatitude(), location.getLongitude())) {
+            log.warn("Invalid WebSocket coordinates received and ignored.");
+            return;
+        }
 
         Principal principal = headerAccessor.getUser();
 
@@ -56,8 +65,8 @@ public class LocationSocketController {
         }
 
         driverRepository.updateLocation(verifiedDriver.getDriverId(),
-                                        location.getLatitude(),
-                                        location.getLongitude());
+                location.getLatitude(),
+                location.getLongitude());
 
         if(location.getRideId() > 0) {
 
@@ -66,7 +75,7 @@ public class LocationSocketController {
             if (newRide == null || newRide.getVehicle() == null || newRide.getVehicle().getDriver() == null
                     || newRide.getVehicle().getDriver().getDriverId() != verifiedDriver.getDriverId()) {
 
-                log.info("Unauthorized location update attempt for ride: " + location.getRideId());
+                log.info("Unauthorized location update attempt for ride: {}", location.getRideId());
                 return;
             }
 
@@ -75,13 +84,17 @@ public class LocationSocketController {
             }
 
             location.setDriverId(verifiedDriver.getDriverId());
-            String dName = verifiedDriver.getDriverName();
-            if (dName == null || dName.isBlank()) {
-                if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getName() != null) {
-                    dName = verifiedDriver.getUser().getName();
-                } else if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getEmail() != null) {
-                    dName = verifiedDriver.getUser().getEmail().split("@")[0];
+            String dName = null;
+            if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getName() != null && !verifiedDriver.getUser().getName().isBlank()) {
+                dName = verifiedDriver.getUser().getName().trim();
+                if (!dName.equals(verifiedDriver.getDriverName())) {
+                    verifiedDriver.setDriverName(dName);
+                    driverRepository.save(verifiedDriver);
                 }
+            } else if (verifiedDriver.getDriverName() != null && !verifiedDriver.getDriverName().isBlank()) {
+                dName = verifiedDriver.getDriverName().trim();
+            } else if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getEmail() != null) {
+                dName = verifiedDriver.getUser().getEmail().split("@")[0];
             }
             location.setDriverName(dName);
             location.setRating(verifiedDriver.getRating());
@@ -89,16 +102,10 @@ public class LocationSocketController {
             Vehicles v = newRide.getVehicle();
             if (v != null) {
                 location.setVehicleNumber(v.getPlateNumber());
-                if (v instanceof Car car) {
-                    location.setVehicleModel(car.getCarModel());
-                    location.setVehicleType("CAR");
-                } else if (v instanceof Bike bike) {
-                    location.setVehicleModel(bike.getBikeModel());
-                    location.setVehicleType("BIKE");
-                } else if (v instanceof Auto auto) {
-                    location.setVehicleModel(auto.getAutoModel());
-                    location.setVehicleType("AUTO");
+                if (v.getVehicleCategory() != null) {
+                    location.setVehicleType(v.getVehicleCategory().name());
                 }
+                location.setVehicleModel(v.getVehicleModelName());
             }
 
             String destination = "/topic/ride/" + location.getRideId();

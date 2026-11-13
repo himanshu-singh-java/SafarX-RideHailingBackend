@@ -59,8 +59,9 @@ public class GlobalExceptionHandler {
         }
 
         Map<String, Object> body = new HashMap<>();
-        body.put("message", "Validation failed");
         body.put("error", "Bad Request");
+        body.put("message", "Validation failed");
+        body.put("status", HttpStatus.BAD_REQUEST.value());
         body.put("details", errors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
@@ -89,16 +90,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGlobalException(Exception ex) {
         log.error("CRITICAL UNHANDLED EXCEPTION: ", ex);
-        Map<String, String> body = new HashMap<>();
-        body.put("message", "An unexpected internal server error occurred.");
+        Map<String, Object> body = new HashMap<>();
         body.put("error", "Internal Server Error");
+        body.put("message", "An unexpected internal server error occurred.");
+        body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
     private ResponseEntity<?> buildErrorResponse(String message, HttpStatus status) {
-        Map<String, String> body = new HashMap<>();
-        body.put("message", message);
+        Map<String, Object> body = new HashMap<>();
         body.put("error", status.getReasonPhrase());
+        body.put("message", message);
+        body.put("status", status.value());
         return ResponseEntity.status(status).body(body);
     }
 }

@@ -8,13 +8,15 @@ import com.ridehailing.exception.RideConflictException;
 import com.ridehailing.model.*;
 import com.ridehailing.repository.DriverRepository;
 import com.ridehailing.repository.RiderRepository;
+import com.ridehailing.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.ridehailing.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -41,7 +43,6 @@ public class UserService {
     }
 
     public Users register(UserRegistrationRequest request) {
-
         String email = request.getEmail().trim().toLowerCase();
 
         if (request.getRole() != null) {
@@ -59,6 +60,7 @@ public class UserService {
         newUser.setEmail(email);
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
         newUser.setRole(Role.ROLE_RIDER);
+        newUser.setProvider("LOCAL");
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
             newUser.setName(request.getName().trim());
         }
@@ -67,30 +69,50 @@ public class UserService {
     }
 
     public String verify(Users user) {
-
         String email = user.getEmail().trim().toLowerCase();
+
+        Optional<Users> existingUserOpt = userRepository.findByEmail(email);
+        if (existingUserOpt.isPresent() && "GOOGLE".equalsIgnoreCase(existingUserOpt.get().getProvider())) {
+            throw new ForbiddenException("This account is linked with Google. Please use 'Continue with Google' to sign in.");
+        }
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, user.getPassword())
         );
 
         if(authentication.isAuthenticated()){
-            String roleName = "ROLE_RIDER";
+            String roleName = Role.ROLE_RIDER.name();
             Object principal = authentication.getPrincipal();
-            if (principal instanceof com.ridehailing.model.UserPrincipal) {
-                com.ridehailing.model.Users dbUser = ((com.ridehailing.model.UserPrincipal) principal).getUser();
+            if (principal instanceof UserPrincipal userPrincipal) {
+                Users dbUser = userPrincipal.getUser();
                 if (dbUser != null && dbUser.getRole() != null) {
                     roleName = dbUser.getRole().name();
                 }
             }
             return jwtService.generateToken(email, roleName);
         }
-        return "Fail";
+        throw new ForbiddenException("Invalid email or password");
+    }
+
+    private Role resolveTargetRole(String rawRequestedRole) {
+        if (rawRequestedRole == null || rawRequestedRole.isBlank()) {
+            return null;
+        }
+        String normalized = rawRequestedRole.trim().toUpperCase();
+        if ("ROLE_ADMIN".equals(normalized) || "ADMIN".equals(normalized)) {
+            throw new ForbiddenException("Cannot self-assign Admin role");
+        }
+        if ("ROLE_RIDER".equals(normalized) || "RIDER".equals(normalized)) {
+            return Role.ROLE_RIDER;
+        }
+        if ("ROLE_DRIVER".equals(normalized) || "DRIVER".equals(normalized)) {
+            return Role.ROLE_DRIVER;
+        }
+        throw new ForbiddenException("Error: Unauthorized or invalid role selection!");
     }
 
     @Transactional
     public String completeUserProfile(String email, ProfileCompletionRequest request){
-
         Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: User not found in database!"));
 
@@ -101,7 +123,6 @@ public class UserService {
                 ? request.getPhone().trim()
                 : null;
 
-        // 1. Existing Administrator in database: only allow name update, role remains untouched
         if (user.getRole() == Role.ROLE_ADMIN) {
             if (cleanName != null) {
                 user.setName(cleanName);
@@ -110,16 +131,22 @@ public class UserService {
             return "Admin profile updated successfully!";
         }
 
-        String rawRequestedRole = request.getRole() != null ? request.getRole().toUpperCase().trim() : null;
-        if ("ROLE_ADMIN".equalsIgnoreCase(rawRequestedRole) || "ADMIN".equalsIgnoreCase(rawRequestedRole)) {
-            throw new ForbiddenException("Cannot self-assign Admin role");
+        Role requestedRole = resolveTargetRole(request.getRole());
+
+        Optional<Riders> existingRiderOpt = riderRepository.findByUsers_Email(email);
+        Optional<Driver> existingDriverOpt = driverRepository.findByUser_Email(email);
+
+        if (existingRiderOpt.isPresent() && requestedRole == Role.ROLE_DRIVER) {
+            Riders existingRider = existingRiderOpt.get();
+            if (existingRider.getPhoneNum() == null || existingRider.getPhoneNum().isBlank()) {
+                riderRepository.delete(existingRider);
+                riderRepository.flush();
+                existingRiderOpt = Optional.empty();
+            }
         }
 
-        boolean isAlreadyRider = riderRepository.findByUsers_Email(email).isPresent();
-        boolean isAlreadyDriver = driverRepository.findByUser_Email(email).isPresent();
-
-        if (isAlreadyRider) {
-            Riders rider = riderRepository.findByUsers_Email(email).get();
+        if (existingRiderOpt.isPresent()) {
+            Riders rider = existingRiderOpt.get();
             if (cleanName != null) {
                 rider.setRiderName(cleanName);
                 user.setName(cleanName);
@@ -130,54 +157,49 @@ public class UserService {
             }
             riderRepository.save(rider);
             return "Profile updated successfully!";
-        } else if (isAlreadyDriver) {
-            Driver driver = driverRepository.findByUser_Email(email).get();
+        }
+
+        if (existingDriverOpt.isPresent()) {
+            Driver driver = existingDriverOpt.get();
             if (cleanName != null) {
                 driver.setDriverName(cleanName);
                 user.setName(cleanName);
                 userRepository.save(user);
             }
+            if (cleanPhone != null) {
+                driver.setPhone(cleanPhone);
+            }
             driverRepository.save(driver);
             return "Profile updated successfully!";
         }
 
-        String requestedRole = (request.getRole() != null) ? request.getRole().toUpperCase().trim() : "ROLE_RIDER";
-
-        if(!requestedRole.equals("ROLE_RIDER") && !requestedRole.equals("ROLE_DRIVER")){
-            throw new ForbiddenException("Error: Unauthorized or invalid role selection!");
+        Role finalRole = (requestedRole != null) ? requestedRole : Role.ROLE_RIDER;
+        String finalName = cleanName != null ? cleanName : user.getName();
+        if (finalName == null || finalName.isBlank()) {
+            throw new IllegalArgumentException("Full name is required to complete profile");
         }
 
-        user.setRole(Role.valueOf(requestedRole));
-        if (cleanName != null) {
-            user.setName(cleanName);
-        }
+        user.setRole(finalRole);
+        user.setName(finalName);
         userRepository.save(user);
 
-        if(requestedRole.equalsIgnoreCase("ROLE_RIDER")){
-            Riders rider = riderRepository.findByUsers_Email(email).orElse(new Riders());
+        if (finalRole == Role.ROLE_RIDER) {
+            Riders rider = new Riders();
             rider.setUsers(user);
-            rider.setRiderName(cleanName != null ? cleanName : "SafarX Rider");
+            rider.setRiderName(finalName);
             rider.setPhoneNum(cleanPhone != null ? cleanPhone : "");
-            if (rider.getRiderRating() == null || rider.getRiderRating() == 0.0) {
-                rider.setRiderRating(5.0);
-            }
+            rider.setRiderRating(5.0);
             riderRepository.save(rider);
             return "Rider profile created Successfully";
-        }
-        else if ("ROLE_DRIVER".equalsIgnoreCase(requestedRole)) {
-            Driver driver = driverRepository.findByUser_Email(email).orElse(new Driver());
+        } else {
+            Driver driver = new Driver();
             driver.setUser(user);
-            driver.setDriverName(cleanName != null ? cleanName : "SafarX Driver");
-            if (driver.getRating() == 0.0) {
-                driver.setRating(5.0);
-            }
-            if (driver.getDriverStatus() == null) {
-                driver.setDriverStatus(VehicleStatus.OFFLINE);
-            }
+            driver.setDriverName(finalName);
+            driver.setPhone(cleanPhone);
+            driver.setRating(5.0);
+            driver.setDriverStatus(VehicleStatus.OFFLINE);
             driverRepository.save(driver);
             return "Driver profile created successfully! Please register a vehicle next.";
         }
-
-        throw new RuntimeException("Error: Invalid Role provided!");
     }
 }
