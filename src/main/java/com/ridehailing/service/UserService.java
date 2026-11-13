@@ -120,7 +120,6 @@ public class UserService {
             return "Profile updated successfully!";
         }
 
-        // Dedicated profile update handling for Administrators
         if (user.getRole() == Role.ROLE_ADMIN || "ROLE_ADMIN".equalsIgnoreCase(request.getRole())) {
             if (cleanName != null) {
                 user.setName(cleanName);
