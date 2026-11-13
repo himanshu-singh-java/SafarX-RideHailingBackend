@@ -6,6 +6,7 @@ import com.ridehailing.model.Car;
 import com.ridehailing.model.Vehicles;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import org.hibernate.Hibernate;
 
 @Getter
 @AllArgsConstructor
@@ -18,23 +19,36 @@ public class VehicleResponse {
     private final int passengerCapacity;
 
     public static VehicleResponse fromEntity(Vehicles vehicle) {
-
-        if (vehicle instanceof Car car) {
-            return new VehicleResponse(
-                    vehicle.getVehicleId(), "CAR", car.getCarModel(),
-                    car.getCarCategory(), car.getPassengerCapacity()
-            );
-        } else if (vehicle instanceof Bike bike) {
-            return new VehicleResponse(
-                    vehicle.getVehicleId(), "BIKE", bike.getBikeModel(),
-                    bike.getBikeType(), bike.getPassengerCapacity()
-            );
-        } else if (vehicle instanceof Auto auto) {
-            return new VehicleResponse(
-                    vehicle.getVehicleId(), "AUTO", auto.getAutoModel(),
-                    auto.getPermitType(), auto.getPassengerCapacity()
-            );
+        if (vehicle == null) {
+            return new VehicleResponse(0, "UNKNOWN", "UNKNOWN", "UNKNOWN", 0);
         }
-        return new VehicleResponse(vehicle.getVehicleId(), "UNKNOWN", "UNKNOWN", "UNKNOWN", 0);
+
+        Vehicles v = (Vehicles) Hibernate.unproxy(vehicle);
+        if (v.getVehicleCategory() != null) {
+            switch (v.getVehicleCategory()) {
+                case CAR -> {
+                    Car car = (Car) v;
+                    return new VehicleResponse(
+                            v.getVehicleId(), "CAR", car.getCarModel(),
+                            car.getCarCategory(), car.getPassengerCapacity()
+                    );
+                }
+                case BIKE -> {
+                    Bike bike = (Bike) v;
+                    return new VehicleResponse(
+                            v.getVehicleId(), "BIKE", bike.getBikeModel(),
+                            bike.getBikeType(), bike.getPassengerCapacity()
+                    );
+                }
+                case AUTO -> {
+                    Auto auto = (Auto) v;
+                    return new VehicleResponse(
+                            v.getVehicleId(), "AUTO", auto.getAutoModel(),
+                            auto.getPermitType(), auto.getPassengerCapacity()
+                    );
+                }
+            }
+        }
+        return new VehicleResponse(v.getVehicleId(), "UNKNOWN", "UNKNOWN", "UNKNOWN", 0);
     }
 }
