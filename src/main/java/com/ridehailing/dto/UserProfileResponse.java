@@ -12,9 +12,16 @@ public record UserProfileResponse(
         String vehicleType,
         String vehicleModel,
         String plateNumber,
-        Double rating
+        Double rating,
+        Double currentLat,
+        Double currentLng
 ) {
     public UserProfileResponse(String email, String role, String name, Integer riderId, Integer driverId, String status) {
-        this(email, role, name, riderId, driverId, status, null, null, null, null);
+        this(email, role, name, riderId, driverId, status, null, null, null, null, null, null);
+    }
+
+    public UserProfileResponse(String email, String role, String name, Integer riderId, Integer driverId, String status,
+                               String vehicleType, String vehicleModel, String plateNumber, Double rating) {
+        this(email, role, name, riderId, driverId, status, vehicleType, vehicleModel, plateNumber, rating, null, null);
     }
 }

@@ -98,7 +98,9 @@ public class AuthController {
                     vehicleType,
                     vehicleModel,
                     plateNumber,
-                    rating
+                    rating,
+                    driver != null ? driver.getCurrentLat() : null,
+                    driver != null ? driver.getCurrentLng() : null
             ));
         }
 

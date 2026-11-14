@@ -37,11 +37,12 @@ public class LocationSocketController {
         return !Double.isNaN(lat) && !Double.isInfinite(lat)
                 && !Double.isNaN(lng) && !Double.isInfinite(lng)
                 && lat >= -90.0 && lat <= 90.0
-                && lng >= -180.0 && lng <= 180.0;
+                && lng >= -180.0 && lng <= 180.0
+                && !(Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6);
     }
 
     @Transactional
-    @MessageMapping("/update-location")
+    @MessageMapping({"/update-location", "/driver-location"})
     public void receiveAndForwardLocation(@Payload LocationUpdateDto location, SimpMessageHeaderAccessor headerAccessor){
 
         if (location == null || !isValidCoordinates(location.getLatitude(), location.getLongitude())) {

@@ -1,7 +1,9 @@
 package com.ridehailing.controller;
 
+import com.ridehailing.dto.DriverLocationUpdateRequest;
 import com.ridehailing.dto.DriverOnboardingRequest;
 import com.ridehailing.dto.VehicleRegistrationRequest;
+import com.ridehailing.exception.UnauthorizedException;
 import com.ridehailing.model.Driver;
 import com.ridehailing.model.VehicleStatus;
 import com.ridehailing.model.Vehicles;
@@ -69,5 +71,33 @@ public class DriverController {
     public ResponseEntity<?> updateStatus(@RequestParam VehicleStatus status, Principal principal){
         String message = driverService.updateDriverStatus(principal.getName(), status);
         return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    @Transactional
+    @PutMapping("/location")
+    public ResponseEntity<?> updateLocation(@Valid @RequestBody DriverLocationUpdateRequest request, Principal principal){
+        if (principal == null) {
+            throw new UnauthorizedException("Unauthorized");
+        }
+        if (request == null || request.getLatitude() == null || request.getLongitude() == null) {
+            throw new IllegalArgumentException("Latitude and longitude are required.");
+        }
+        double lat = request.getLatitude();
+        double lng = request.getLongitude();
+        if (Double.isNaN(lat) || Double.isInfinite(lat) || Double.isNaN(lng) || Double.isInfinite(lng)
+                || lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) {
+            throw new IllegalArgumentException("Invalid coordinates: Latitude must be between -90 and 90, and longitude between -180 and 180.");
+        }
+        if (Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6) {
+            throw new IllegalArgumentException("Coordinates (0.0, 0.0) are invalid.");
+        }
+
+        driverService.updateDriverLocation(principal.getName(), lat, lng);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Driver location updated successfully",
+                "latitude", lat,
+                "longitude", lng
+        ));
     }
 }

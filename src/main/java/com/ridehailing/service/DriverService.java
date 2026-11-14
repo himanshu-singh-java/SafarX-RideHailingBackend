@@ -260,4 +260,20 @@ public class DriverService {
 
         return "Driver status updated to " + status;
     }
+
+    @Transactional
+    public void updateDriverLocation(String email, double lat, double lng) {
+        if (Double.isNaN(lat) || Double.isInfinite(lat) || Double.isNaN(lng) || Double.isInfinite(lng)
+                || lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) {
+            throw new IllegalArgumentException("Invalid coordinates: Latitude must be between -90 and 90, and longitude between -180 and 180.");
+        }
+        if (Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6) {
+            throw new IllegalArgumentException("Coordinates (0.0, 0.0) are invalid.");
+        }
+
+        Driver driver = driverRepository.findByUser_Email(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Driver profile not found"));
+
+        driverRepository.updateLocation(driver.getDriverId(), lat, lng);
+    }
 }
