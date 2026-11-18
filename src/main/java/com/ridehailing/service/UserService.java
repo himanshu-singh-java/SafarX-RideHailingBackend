@@ -71,11 +71,6 @@ public class UserService {
     public String verify(Users user) {
         String email = user.getEmail().trim().toLowerCase();
 
-        Optional<Users> existingUserOpt = userRepository.findByEmail(email);
-        if (existingUserOpt.isPresent() && "GOOGLE".equalsIgnoreCase(existingUserOpt.get().getProvider())) {
-            throw new ForbiddenException("This account is linked with Google. Please use 'Continue with Google' to sign in.");
-        }
-
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, user.getPassword())
         );
@@ -94,18 +89,18 @@ public class UserService {
         throw new ForbiddenException("Invalid email or password");
     }
 
-    private Role resolveTargetRole(String rawRequestedRole) {
-        if (rawRequestedRole == null || rawRequestedRole.isBlank()) {
+    private Role resolveTargetRole(String requestedRole) {
+        if (requestedRole == null || requestedRole.isBlank()) {
             return null;
         }
-        String normalized = rawRequestedRole.trim().toUpperCase();
-        if ("ROLE_ADMIN".equals(normalized) || "ADMIN".equals(normalized)) {
+        String role = requestedRole.trim().toUpperCase();
+        if ("ROLE_ADMIN".equals(role) || "ADMIN".equals(role)) {
             throw new ForbiddenException("Cannot self-assign Admin role");
         }
-        if ("ROLE_RIDER".equals(normalized) || "RIDER".equals(normalized)) {
+        if ("ROLE_RIDER".equals(role) || "RIDER".equals(role)) {
             return Role.ROLE_RIDER;
         }
-        if ("ROLE_DRIVER".equals(normalized) || "DRIVER".equals(normalized)) {
+        if ("ROLE_DRIVER".equals(role) || "DRIVER".equals(role)) {
             return Role.ROLE_DRIVER;
         }
         throw new ForbiddenException("Error: Unauthorized or invalid role selection!");
@@ -116,16 +111,16 @@ public class UserService {
         Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Error: User not found in database!"));
 
-        String cleanName = (request.getName() != null && !request.getName().trim().isEmpty())
+        String name = (request.getName() != null && !request.getName().trim().isEmpty())
                 ? request.getName().trim()
                 : null;
-        String cleanPhone = (request.getPhone() != null && !request.getPhone().trim().isEmpty())
+        String phone = (request.getPhone() != null && !request.getPhone().trim().isEmpty())
                 ? request.getPhone().trim()
                 : null;
 
         if (user.getRole() == Role.ROLE_ADMIN) {
-            if (cleanName != null) {
-                user.setName(cleanName);
+            if (name != null) {
+                user.setName(name);
             }
             userRepository.save(user);
             return "Admin profile updated successfully!";
@@ -147,13 +142,13 @@ public class UserService {
 
         if (existingRiderOpt.isPresent()) {
             Riders rider = existingRiderOpt.get();
-            if (cleanName != null) {
-                rider.setRiderName(cleanName);
-                user.setName(cleanName);
+            if (name != null) {
+                rider.setRiderName(name);
+                user.setName(name);
                 userRepository.save(user);
             }
-            if (cleanPhone != null) {
-                rider.setPhoneNum(cleanPhone);
+            if (phone != null) {
+                rider.setPhoneNum(phone);
             }
             riderRepository.save(rider);
             return "Profile updated successfully!";
@@ -161,20 +156,20 @@ public class UserService {
 
         if (existingDriverOpt.isPresent()) {
             Driver driver = existingDriverOpt.get();
-            if (cleanName != null) {
-                driver.setDriverName(cleanName);
-                user.setName(cleanName);
+            if (name != null) {
+                driver.setDriverName(name);
+                user.setName(name);
                 userRepository.save(user);
             }
-            if (cleanPhone != null) {
-                driver.setPhone(cleanPhone);
+            if (phone != null) {
+                driver.setPhone(phone);
             }
             driverRepository.save(driver);
             return "Profile updated successfully!";
         }
 
         Role finalRole = (requestedRole != null) ? requestedRole : Role.ROLE_RIDER;
-        String finalName = cleanName != null ? cleanName : user.getName();
+        String finalName = name != null ? name : user.getName();
         if (finalName == null || finalName.isBlank()) {
             throw new IllegalArgumentException("Full name is required to complete profile");
         }
@@ -187,7 +182,7 @@ public class UserService {
             Riders rider = new Riders();
             rider.setUsers(user);
             rider.setRiderName(finalName);
-            rider.setPhoneNum(cleanPhone != null ? cleanPhone : "");
+            rider.setPhoneNum(phone != null ? phone : "");
             rider.setRiderRating(5.0);
             riderRepository.save(rider);
             return "Rider profile created Successfully";
@@ -195,7 +190,7 @@ public class UserService {
             Driver driver = new Driver();
             driver.setUser(user);
             driver.setDriverName(finalName);
-            driver.setPhone(cleanPhone);
+            driver.setPhone(phone);
             driver.setRating(5.0);
             driver.setDriverStatus(VehicleStatus.OFFLINE);
             driverRepository.save(driver);

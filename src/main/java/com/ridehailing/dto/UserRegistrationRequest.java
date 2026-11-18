@@ -16,6 +16,9 @@ public class UserRegistrationRequest {
     @Size(min = 6, message = "Password must be at least 6 characters long")
     private String password;
 
+    @NotBlank(message = "Otp is required")
+    private String otp;
+
     private String name;
 
     private String role;
