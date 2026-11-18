@@ -9,6 +9,7 @@ import com.ridehailing.model.VehicleStatus;
 import com.ridehailing.model.Vehicles;
 import com.ridehailing.service.DriverService;
 import com.ridehailing.service.JwtService;
+import com.ridehailing.service.OtpService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,15 +25,24 @@ public class DriverController {
 
     private final DriverService driverService;
     private final JwtService jwtService;
+    private final OtpService otpService;
 
     public DriverController(DriverService driverService,
-                            JwtService jwtService){
+                            JwtService jwtService,
+                            OtpService otpService){
         this.driverService = driverService;
         this.jwtService = jwtService;
+        this.otpService = otpService;
     }
 
     @PostMapping("/onboard")
     public ResponseEntity<?> onBoardDriver(@Valid @RequestBody DriverOnboardingRequest request){
+
+        boolean isOtpValid = otpService.verifyOtp(request.getEmail(), request.getOtp());
+
+        if(!isOtpValid){
+            throw new UnauthorizedException("Invalid or expired OTP!");
+        }
 
         Driver driver = driverService.onBoardDriver(request);
         String token = jwtService.generateToken(request.getEmail(), "ROLE_DRIVER");

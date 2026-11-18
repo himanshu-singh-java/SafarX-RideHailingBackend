@@ -87,6 +87,11 @@ public class GlobalExceptionHandler {
         return buildErrorResponse("Invalid credentials or unauthorized access.", HttpStatus.UNAUTHORIZED);
     }
 
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<?> handleTooManyRequestsException(TooManyRequestsException ex){
+        return buildErrorResponse(ex.getMessage(), HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGlobalException(Exception ex) {
         log.error("CRITICAL UNHANDLED EXCEPTION: ", ex);

@@ -1,8 +1,6 @@
 package com.ridehailing.dto;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 
 @Data
@@ -13,6 +11,7 @@ public class DriverOnboardingRequest {
     private String email;
 
     @NotBlank(message = "Password is required")
+    @Size(min = 6, message = "Password must be at least 6 characters long")
     private String password;
 
     @NotBlank(message = "Full name is required")
@@ -22,8 +21,12 @@ public class DriverOnboardingRequest {
     private String phone;
 
     @NotNull(message = "Latitude is required")
+    @DecimalMin("-90.0")
+    @DecimalMax("90.0")
     private Double latitude;
 
+    @DecimalMin("-180.0")
+    @DecimalMax("180.0")
     @NotNull(message = "Longitude is required")
     private Double longitude;
 
@@ -32,6 +35,9 @@ public class DriverOnboardingRequest {
 
     @NotBlank(message = "Plate number is required")
     private String plateNumber;
+
+    @NotBlank(message = "Otp is required")
+    private String otp;
 
     private String carModel;
     private String carCategory;

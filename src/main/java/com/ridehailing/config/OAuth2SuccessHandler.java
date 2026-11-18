@@ -4,7 +4,6 @@ import com.ridehailing.model.Role;
 import com.ridehailing.model.Users;
 import com.ridehailing.repository.UserRepository;
 import com.ridehailing.service.JwtService;
-import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -16,7 +15,9 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Optional;
 
 @Slf4j
@@ -25,37 +26,47 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserRepository userRepository;
     private final JwtService service;
+    private final String frontendBaseUrl;
 
-    public OAuth2SuccessHandler(UserRepository userRepository, JwtService service){
+
+    public OAuth2SuccessHandler(UserRepository userRepository,
+                                JwtService service,
+                                @Value("${frontend.url:http://localhost:5173}") String frontendBaseUrl){
         this.userRepository = userRepository;
         this.service = service;
-    }
-
-    @Value("${frontend.url:http://localhost:5173}")
-    private String frontendBaseUrl;
-
-    @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
-                                        FilterChain chain, Authentication authentication)
-            throws IOException, ServletException {
-        AuthenticationSuccessHandler.super.onAuthenticationSuccess(request, response, chain, authentication);
+        this.frontendBaseUrl = frontendBaseUrl.replaceAll("/+$", "");
     }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
-        OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
+
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Pragma", "no-cache");
+
+        if (!(authentication.getPrincipal() instanceof OAuth2User oAuth2User)) {
+            log.warn("OAuth2: Unexpected principal type during authentication");
+            response.sendRedirect(frontendBaseUrl + "/login?error=oauth_failed");
+            return;
+        }
+
         String email = oAuth2User.getAttribute("email");
         String name = oAuth2User.getAttribute("name");
-        Boolean emailVerified = oAuth2User.getAttribute("email_verified");
+        Object emailVerifiedAttr = oAuth2User.getAttribute("email_verified");
 
-        if (email == null || email.isBlank() || Boolean.FALSE.equals(emailVerified)) {
+
+        Boolean isEmailVerified = Boolean.TRUE.equals(emailVerifiedAttr) ||
+                "true".equalsIgnoreCase(String.valueOf(emailVerifiedAttr));
+
+        if (email == null || email.isBlank() || !isEmailVerified) {
             log.warn("OAuth2: Rejected unverified or missing Google email");
             response.sendRedirect(frontendBaseUrl + "/login?error=unverified_email");
             return;
         }
 
-        String normalizedEmail = email.trim().toLowerCase();
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        String sanitizedName = (name != null && !name.isBlank()) ? name.trim() : null;
+
         Optional<Users> existingUser = userRepository.findByEmail(normalizedEmail);
         boolean isNew = existingUser.isEmpty();
         Users user;
@@ -63,7 +74,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         if(isNew){
             user = new Users();
             user.setEmail(normalizedEmail);
-            user.setName(name != null && !name.isBlank() ? name.trim() : null);
+            user.setName(sanitizedName);
             user.setPassword("");
             user.setRole(Role.ROLE_RIDER);
             user.setProvider("GOOGLE");
@@ -72,35 +83,28 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         }
         else{
             user = existingUser.get();
-            boolean updated = false;
 
-            if (!"GOOGLE".equalsIgnoreCase(user.getProvider())) {
-                user.setProvider("GOOGLE");
-                user.setPassword("");
-                updated = true;
-                log.info("OAuth2: Upgraded existing LOCAL account to verified GOOGLE provider: {}", normalizedEmail);
-            }
-
-            if ((user.getName() == null || user.getName().isBlank()) && name != null && !name.isBlank()) {
-                user.setName(name.trim());
-                updated = true;
-            }
-
-            if (updated) {
+            if ((user.getName() == null || user.getName().isBlank()) && sanitizedName != null) {
+                user.setName(sanitizedName);
                 user = userRepository.save(user);
             }
             log.info("OAuth2: User {} logged in via Google SSO (account provider: {})", normalizedEmail, user.getProvider());
         }
 
-        String roleName = user.getRole() != null ? user.getRole().name() : Role.ROLE_RIDER.name();
+        String roleName = (user.getRole() != null) ? user.getRole().name() : Role.ROLE_RIDER.name();
         String token = service.generateToken(user.getEmail(), roleName);
 
-        String encodedName = name != null ? java.net.URLEncoder.encode(name, StandardCharsets.UTF_8) : "";
+        String displayName = (user.getName() != null && !user.getName().isBlank())
+                ? user.getName()
+                : (sanitizedName != null ? sanitizedName : "");
 
-        String frontEndUrl = frontendBaseUrl + "/oauth2/redirect#token=" + token
+        String encodedName = !displayName.isEmpty() ? URLEncoder.encode(displayName,
+                StandardCharsets.UTF_8).replace("+", "%20") : "";
+
+        String redirectUrl = frontendBaseUrl + "/oauth2/redirect#token=" + token
                 + (!encodedName.isEmpty() ? "&name=" + encodedName : "")
                 + "&isNew=" + isNew;
 
-        response.sendRedirect(frontEndUrl);
+        response.sendRedirect(redirectUrl);
     }
 }
