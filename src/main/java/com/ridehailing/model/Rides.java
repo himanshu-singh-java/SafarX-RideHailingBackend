@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "rides", indexes = {
         @Index(name = "idx_rider_status", columnList = "rider_id, status"),
-        @Index(name = "idx_ride_status", columnList = "status")
+        @Index(name = "idx_ride_status", columnList = "status"),
+        @Index(name = "idx_razorpay_order_id", columnList = "razorpay_order_id")
 })
 public class Rides {
 
@@ -40,6 +41,9 @@ public class Rides {
 
     @Column(name = "razorpay_order_id")
     private String razorPayOrderId;
+
+    @Column(name = "razorpay_payment_id", unique = true)
+    private String razorPayPaymentId;
 
     @Column(name = "start_time")
     private LocalDateTime startTime;
@@ -218,5 +222,13 @@ public class Rides {
 
     public void setDriver(Driver driver) {
         this.driver = driver;
+    }
+
+    public String getRazorPayPaymentId() {
+        return razorPayPaymentId;
+    }
+
+    public void setRazorPayPaymentId(String razorPayPaymentId) {
+        this.razorPayPaymentId = razorPayPaymentId;
     }
 }

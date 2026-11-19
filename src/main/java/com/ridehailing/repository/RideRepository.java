@@ -70,4 +70,8 @@ public interface RideRepository extends JpaRepository<Rides, Integer> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = "DELETE FROM ride_notified_drivers WHERE ride_id = :rideId", nativeQuery = true)
     void deleteNotifiedDriversByRideId(@Param("rideId") int rideId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Rides r WHERE r.razorPayOrderId= :orderId")
+    Optional<Rides> findByRazorPayOrderIdForUpdate(@Param("orderId") String orderId);
 }

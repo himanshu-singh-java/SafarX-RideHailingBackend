@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/me", "/api/auth/complete-profile").authenticated()
                         .requestMatchers("/api/auth/**", "/login/**", "/oauth2/**", "/ws-ride/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/driver/onboard").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payment/webhook").permitAll()
                         .requestMatchers("/api/rider/**", "/api/rides/book", "/api/rides/history/**", "/api/rides/cancel/**", "/api/payment/**").hasRole("RIDER")
                         .requestMatchers("/api/driver/**", "/api/rides/accept/**", "/api/rides/start/**","/api/rides/complete/**").hasRole("DRIVER")
                         .requestMatchers("/api/rides/all", "/api/rides/delete/**", "/api/vehicles/complete-ride/**").hasRole("ADMIN")

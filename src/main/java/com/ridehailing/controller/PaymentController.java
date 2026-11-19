@@ -46,4 +46,11 @@ public class PaymentController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/webhook")
+    public ResponseEntity<?> handleRazorpayWebhook(@RequestBody String rawPayload,
+                                                   @RequestHeader(value = "X-Razorpay-Signature", required = false) String razorpaySignature){
+        paymentService.handleWebhook(rawPayload, razorpaySignature);
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
 }

@@ -92,6 +92,11 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(ex.getMessage(), HttpStatus.TOO_MANY_REQUESTS);
     }
 
+    @ExceptionHandler(PaymentGatewayException.class)
+    public ResponseEntity<?> handlePaymentGatewayException(PaymentGatewayException ex){
+        return buildErrorResponse(ex.getMessage(), HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGlobalException(Exception ex) {
         log.error("CRITICAL UNHANDLED EXCEPTION: ", ex);
