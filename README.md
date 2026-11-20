@@ -9,13 +9,14 @@ Riders request a ride, nearby drivers are notified in real time over **WebSocket
 
 ## Features
 
-- **Authentication:** email/password login (BCrypt) and **Google OAuth2**, both issuing stateless **JWT** tokens
+- **Authentication:** email/password login (BCrypt), **6-digit email OTP verification** on signup/onboarding, and **Google OAuth2**, issuing stateless **JWT** tokens
+- **Abuse protection:** in-memory per-IP rate limiting on OTP and login endpoints, plus atomic OTP attempt tracking and lockout
 - **Role-based access control:** `RIDER`, `DRIVER`, `ADMIN`, with ownership checks on every ride action
 - **Radius-expanding dispatch:** searches 1 km → 10 km in waves, notifying only drivers who were not already notified
 - **Real-time updates (STOMP over WebSocket):** ride offers to drivers, status and live driver location to riders
 - **Concurrency-safe assignment:** only one driver can win a ride, even if many accept at the same moment
 - **Ride lifecycle:** `REQUESTED → ACCEPTED → IN_PROGRESS → COMPLETED` (or `CANCELLED`)
-- **Payments:** Razorpay order creation and server-side signature verification
+- **Payments:** Razorpay order creation with smart retry protection, server-side signature & payment status verification, and `payment.captured` / `payment.failed` **webhooks**
 - **Polymorphic fares:** `Car`, `Bike` and `Auto` each implement their own fare calculation
 - **Centralised error handling:** consistent JSON errors with correct HTTP status codes
 
@@ -29,8 +30,8 @@ Riders request a ride, nearby drivers are notified in real time over **WebSocket
 | Persistence | Spring Data JPA, Hibernate, MySQL |
 | Security | Spring Security, JWT (jjwt), Google OAuth2 |
 | Real-time | Spring WebSocket (STOMP, SockJS) |
-| Payments | Razorpay Java SDK |
-| Other | Spring AOP, Bean Validation, Lombok, Maven |
+| Payments | Razorpay Java SDK (Checkout + Webhooks) |
+| Other | Spring Mail, Spring AOP, Bean Validation, Lombok, Maven |
 
 ---
 
@@ -47,9 +48,10 @@ flowchart LR
     Engine -->|after commit events| WS
     Engine --> DB[(MySQL)]
     API --> Pay[PaymentService] --> Razorpay[(Razorpay)]
+    Razorpay -->|signed webhooks| API
 ```
 
-Layers: `controller` → `service` (`RideEngine`, `PaymentService`, `UserService`, ...) → `repository`. Notifications are published as Spring events and sent over WebSocket **only after the database transaction commits**.
+Layers: `controller` → `service` (`RideEngine`, `PaymentService`, `OtpService`, `RateLimitService`, `UserService`, ...) → `repository`. Notifications are published as Spring events and sent over WebSocket **only after the database transaction commits**.
 
 ### Ride lifecycle
 
@@ -86,14 +88,15 @@ Several drivers can receive the same ride and accept at the same time. Assignmen
 
 ### 3. Security
 - Stateless JWT authentication; role rules on exact path patterns plus **ownership checks** in the service layer (a rider can only cancel/view their own rides, a driver can only start/complete rides assigned to them).
+- **Email OTP & Rate Limiting:** registration and driver onboarding require a `SecureRandom` 6-digit OTP (5-min expiry, 60s resend cooldown, atomic 5-attempt lockout with constant-time comparison, and scheduled cleanup). Public `/api/auth/send-otp` and `/api/auth/login` endpoints are protected with per-IP sliding-window rate limiting.
 - Roles cannot be chosen freely by the client. `ADMIN` can only be assigned in the database.
 - **WebSocket hardening:**
     - JWT is required on `CONNECT`.
     - Subscriptions are restricted to `^/topic/(ride|driver)/\d+$` (no wildcards).
     - A rider can only subscribe to their own ride, a driver only to their own channel and assigned rides.
     - Clients cannot publish directly to `/topic/**`.
-- **OAuth:** the token is returned in the URL fragment (not the query string), and Google sign-in does not silently link to an existing password-based account.
-- **Payments:** the Razorpay order is created from the **server-side fare** and saved on the ride; verification checks the signature against the *stored* order id, and the caller must own the ride.
+- **OAuth:** the token is returned in the URL fragment (not the query string), strict `email_verified` checks are enforced, and Google sign-in does not silently link to an existing password-based account.
+- **Payments:** the Razorpay order is created from the **server-side fare** and saved on the ride; verification checks the HMAC signature against the *stored* order id, cross-checks payment status/amount/currency directly with Razorpay APIs, and handles signed server-to-server webhooks idempotently.
 
 ### 4. Reliable notifications
 Events (`RideBroadcastEvent`, `RideNotificationEvent`) are delivered with `@TransactionalEventListener(AFTER_COMMIT)`, so a driver or rider is never notified about something that later rolls back.
@@ -106,11 +109,13 @@ All endpoints except those marked *public* need `Authorization: Bearer <token>`.
 
 | Method | Endpoint | Role | Description |
 |---|---|---|---|
-| POST | `/api/auth/register` | public | Register a rider account |
-| POST | `/api/auth/login` | public | Login, returns a JWT |
+| POST | `/api/auth/send-otp` | public | Send 6-digit email verification OTP (rate-limited) |
+| POST | `/api/auth/register` | public | Register a rider account (requires valid OTP) |
+| POST | `/api/auth/login` | public | Login, returns a JWT (rate-limited) |
+| GET | `/api/auth/me` | any | Fetch current authenticated user profile |
 | POST | `/api/auth/complete-profile` | any | Create rider/driver profile (one-time role choice) |
 | GET | `/oauth2/authorization/google` | public | Start Google login |
-| POST | `/api/driver/onboard` | public | Register a driver together with a vehicle |
+| POST | `/api/driver/onboard` | public | Register a driver together with a vehicle (requires valid OTP) |
 | POST | `/api/driver/vehicle` | DRIVER | Register a vehicle for an existing driver |
 | PATCH | `/api/driver/status?status=` | DRIVER | Go `AVAILABLE` / `OFFLINE` |
 | POST | `/api/rides/book` | RIDER | Request a ride |
@@ -119,8 +124,9 @@ All endpoints except those marked *public* need `Authorization: Bearer <token>`.
 | PUT | `/api/rides/complete/{id}` | DRIVER | Complete a ride |
 | PUT | `/api/rides/cancel/{id}` | RIDER | Cancel a ride |
 | GET | `/api/rides/history/{riderId}` | RIDER | Own ride history |
-| POST | `/api/payment/create-order` | RIDER | Create a Razorpay order for a completed ride |
-| POST | `/api/payment/verify` | RIDER | Verify the payment signature |
+| POST | `/api/payment/create-order` | RIDER | Create or reuse a Razorpay order for a completed ride |
+| POST | `/api/payment/verify` | RIDER | Verify the payment signature and capture status |
+| POST | `/api/payment/webhook` | public *(HMAC verified)* | Razorpay webhook handler (`payment.captured`, `payment.failed`) |
 | GET | `/api/vehicles/status/{type}` | any | List vehicles by type (`CAR`, `BIKE`, `AUTO`) |
 | GET | `/api/rides/all`, DELETE `/api/rides/delete/{id}` | ADMIN | Admin operations |
 
@@ -148,7 +154,9 @@ Create a database named `SafarX_db` (tables are created by Hibernate on first ru
 | `DB_PASSWORD` | MySQL password |
 | `JWT_SECRET` | Base64-encoded secret, at least 256 bits |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth2 credentials |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP email and App Password for sending OTP emails |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay test keys |
+| `RAZORPAY_WEBHOOK_SECRET` | Secret configured in Razorpay Dashboard for webhook signature verification |
 | `frontend.url` *(optional)* | Frontend origin, default `http://localhost:5173` |
 
 Generate a JWT secret with:
@@ -170,9 +178,9 @@ This is an MVP, and these are known next steps:
 
 - **Dispatch:** ranked, sequential offers (instead of broadcasting to all drivers in range) and a bounded total search window
 - **Geo search:** move driver locations to **Redis GEO** instead of SQL distance queries
-- **Payments:** Razorpay **webhooks** for reliability, and `BigDecimal` for money
+- **Payments:** migrate fare storage from `Double` to `BigDecimal` and track historical Razorpay order IDs for edge-case reconciliation
 - **Testing:** unit and concurrency tests (e.g. two drivers accepting the same ride)
-- **Operations:** Docker, Flyway migrations, environment profiles, refresh tokens, rate limiting
+- **Operations:** Docker, Flyway migrations, environment profiles, refresh tokens, and **Redis-backed distributed OTP & rate limiting**
 - **Upgrade:** latest Spring Boot version
 
 ---
