@@ -95,7 +95,7 @@ Several drivers can receive the same ride and accept at the same time. Assignmen
     - Subscriptions are restricted to `^/topic/(ride|driver)/\d+$` (no wildcards).
     - A rider can only subscribe to their own ride, a driver only to their own channel and assigned rides.
     - Clients cannot publish directly to `/topic/**`.
-- **OAuth:** the token is returned in the URL fragment (not the query string), strict `email_verified` checks are enforced, and Google sign-in does not silently link to an existing password-based account.
+- **OAuth:** the token is returned in the URL fragment (not the query string), strict `email_verified` checks are enforced, and Google sign-in links only to existing OTP-verified local accounts by email (never trusting unverified emails).
 - **Payments:** the Razorpay order is created from the **server-side fare** and saved on the ride; verification checks the HMAC signature against the *stored* order id, cross-checks payment status/amount/currency directly with Razorpay APIs, and handles signed server-to-server webhooks idempotently.
 
 ### 4. Reliable notifications
@@ -182,6 +182,7 @@ This is an MVP, and these are known next steps:
 - **Testing:** unit and concurrency tests (e.g. two drivers accepting the same ride)
 - **Operations:** Docker, Flyway migrations, environment profiles, refresh tokens, and **Redis-backed distributed OTP & rate limiting**
 - **Upgrade:** latest Spring Boot version
+- **Hardening (Post-MVP):** per-account login lockout, driver `last_seen` heartbeat/stale-ride recovery, restricting `/api/vehicles/status/{type}`, and production DB defaults (`show-sql=false`, SSL, least-privilege DB user)
 
 ---
 
