@@ -26,7 +26,7 @@ public class EmailService {
     }
 
     @Async
-    public void sendOtpEmail(String to, String otp){
+    public void sendOtpEmail(String to, String otp, Runnable onFailure){
         try{
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -45,11 +45,27 @@ public class EmailService {
 
             helper.setText(htmlContent, true);
             javaMailSender.send(message);
-            logger.info("OTP email successfully sent to: {}", to);
+            logger.info("OTP email successfully sent to: {}", maskEmail(to));
         }
         catch (MessagingException | MailException m){
-            logger.error("Failed to send OTP email to: {}. Error: {}", to, m.getMessage());
+            logger.error("Failed to send OTP email to: {}. Error: {}", maskEmail(to), m.getMessage());
+            if(onFailure != null){
+                onFailure.run();
+            }
         }
     }
 
+    private String maskEmail(String email){
+     if(email == null || !email.contains("@")){
+         return "***";
+     }
+
+     int atIndex = email.indexOf("@");
+
+     if(atIndex <= 2){
+         return "***" + email.substring(atIndex);
+     }
+
+     return email.substring(0, 2) + "***" + email.substring(atIndex);
+    }
 }

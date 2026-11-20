@@ -88,15 +88,14 @@ public class LocationSocketController {
             String dName = null;
             if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getName() != null && !verifiedDriver.getUser().getName().isBlank()) {
                 dName = verifiedDriver.getUser().getName().trim();
-                if (!dName.equals(verifiedDriver.getDriverName())) {
-                    verifiedDriver.setDriverName(dName);
-                    driverRepository.save(verifiedDriver);
-                }
-            } else if (verifiedDriver.getDriverName() != null && !verifiedDriver.getDriverName().isBlank()) {
+            }
+            else if (verifiedDriver.getDriverName() != null && !verifiedDriver.getDriverName().isBlank()) {
                 dName = verifiedDriver.getDriverName().trim();
-            } else if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getEmail() != null) {
+            }
+            else if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getEmail() != null) {
                 dName = verifiedDriver.getUser().getEmail().split("@")[0];
             }
+
             location.setDriverName(dName);
             location.setRating(verifiedDriver.getRating());
 

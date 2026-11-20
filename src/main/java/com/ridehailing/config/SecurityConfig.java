@@ -1,6 +1,8 @@
 package com.ridehailing.config;
 
+import com.ridehailing.filter.AuthRateLimitFilter;
 import com.ridehailing.filter.JwtFilter;
+import com.ridehailing.service.RateLimitService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -26,13 +28,15 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final RateLimitService rateLimitService;
 
     @Value("${frontend.url:http://localhost:5173}")
     private String frontEndBaseUrl;
 
-    public SecurityConfig(JwtFilter jwtFilter, OAuth2SuccessHandler oAuth2SuccessHandler){
+    public SecurityConfig(JwtFilter jwtFilter, OAuth2SuccessHandler oAuth2SuccessHandler, RateLimitService rateLimitService){
         this.jwtFilter = jwtFilter;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+        this.rateLimitService = rateLimitService;
     }
 
     @Bean
@@ -60,6 +64,7 @@ public class SecurityConfig {
                         })
                 )
                 .oauth2Login(oauth2 -> oauth2.successHandler(oAuth2SuccessHandler))
+                .addFilterBefore(new AuthRateLimitFilter(rateLimitService), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)

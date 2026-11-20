@@ -69,10 +69,6 @@ public class AuthController {
             String driverName = (user.getName() != null && !user.getName().isBlank())
                     ? user.getName().trim()
                     : (driver != null && driver.getDriverName() != null && !driver.getDriverName().isBlank() ? driver.getDriverName().trim() : user.getEmail().split("@")[0]);
-            if (driver != null && user.getName() != null && !user.getName().isBlank() && !user.getName().equals(driver.getDriverName())) {
-                driver.setDriverName(user.getName().trim());
-                driverRepository.save(driver);
-            }
 
             String vehicleType = null;
             String vehicleModel = null;

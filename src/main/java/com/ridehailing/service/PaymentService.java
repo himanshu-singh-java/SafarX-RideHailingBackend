@@ -114,8 +114,10 @@ public class PaymentService {
                 log.info("Recreating Razorpay order for ride {} (prev order: {}, status: {}, ridePaymentStatus: {})",
                         rideId, ride.getRazorPayOrderId(), orderStatus, ride.getPaymentStatus());
             } catch (RazorpayException e) {
-                log.warn("Could not fetch existing Razorpay order {} for ride {}. Creating fresh" +
-                        " order. Reason: {}", ride.getRazorPayOrderId(), rideId, e.getMessage());
+                log.error("Could not verify existing Razorpay order {} for ride {}. Aborting to prevent double charge. Reason: {}",
+                        ride.getRazorPayOrderId(), rideId, e.getMessage());
+                throw new PaymentGatewayException(
+                        "Unable to verify existing payment status with Razorpay. Please try again shortly.");
             }
         }
 
