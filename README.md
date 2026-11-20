@@ -95,7 +95,7 @@ Several drivers can receive the same ride and accept at the same time. Assignmen
     - Subscriptions are restricted to `^/topic/(ride|driver)/\d+$` (no wildcards).
     - A rider can only subscribe to their own ride, a driver only to their own channel and assigned rides.
     - Clients cannot publish directly to `/topic/**`.
-- **OAuth:** the token is returned in the URL fragment (not the query string), strict `email_verified` checks are enforced, and Google sign-in links only to existing OTP-verified local accounts by email (never trusting unverified emails).
+- **OAuth:** the token is returned in the URL fragment (not the query string), strict `email_verified` checks are enforced, and Google sign-in logs into the existing account that has the same Google-verified email.
 - **Payments:** the Razorpay order is created from the **server-side fare** and saved on the ride; verification checks the HMAC signature against the *stored* order id, cross-checks payment status/amount/currency directly with Razorpay APIs, and handles signed server-to-server webhooks idempotently.
 
 ### 4. Reliable notifications

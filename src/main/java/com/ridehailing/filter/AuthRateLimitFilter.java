@@ -53,14 +53,6 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         if(realIp != null && !realIp.isBlank()){
             return realIp.trim();
         }
-
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            String[] parts = forwardedFor.split(",");
-            return parts[parts.length - 1].trim();
-        }
-
         return request.getRemoteAddr();
     }
 
