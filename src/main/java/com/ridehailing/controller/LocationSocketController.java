@@ -65,7 +65,18 @@ public class LocationSocketController {
             return;
         }
 
-        driverRepository.updateLocation(verifiedDriver.getDriverId(),
+        int verifiedDriverId = verifiedDriver.getDriverId();
+        double driverRating = verifiedDriver.getRating();
+        String dName = null;
+        if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getName() != null && !verifiedDriver.getUser().getName().isBlank()) {
+            dName = verifiedDriver.getUser().getName().trim();
+        } else if (verifiedDriver.getDriverName() != null && !verifiedDriver.getDriverName().isBlank()) {
+            dName = verifiedDriver.getDriverName().trim();
+        } else if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getEmail() != null) {
+            dName = verifiedDriver.getUser().getEmail().split("@")[0];
+        }
+
+        driverRepository.updateLocation(verifiedDriverId,
                 location.getLatitude(),
                 location.getLongitude());
 
@@ -74,7 +85,7 @@ public class LocationSocketController {
             Rides newRide = rideRepository.findById(location.getRideId()).orElse(null);
 
             if (newRide == null || newRide.getVehicle() == null || newRide.getVehicle().getDriver() == null
-                    || newRide.getVehicle().getDriver().getDriverId() != verifiedDriver.getDriverId()) {
+                    || newRide.getVehicle().getDriver().getDriverId() != verifiedDriverId) {
 
                 log.info("Unauthorized location update attempt for ride: {}", location.getRideId());
                 return;
@@ -84,20 +95,9 @@ public class LocationSocketController {
                 return;
             }
 
-            location.setDriverId(verifiedDriver.getDriverId());
-            String dName = null;
-            if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getName() != null && !verifiedDriver.getUser().getName().isBlank()) {
-                dName = verifiedDriver.getUser().getName().trim();
-            }
-            else if (verifiedDriver.getDriverName() != null && !verifiedDriver.getDriverName().isBlank()) {
-                dName = verifiedDriver.getDriverName().trim();
-            }
-            else if (verifiedDriver.getUser() != null && verifiedDriver.getUser().getEmail() != null) {
-                dName = verifiedDriver.getUser().getEmail().split("@")[0];
-            }
-
+            location.setDriverId(verifiedDriverId);
             location.setDriverName(dName);
-            location.setRating(verifiedDriver.getRating());
+            location.setRating(driverRating);
 
             Vehicles v = newRide.getVehicle();
             if (v != null) {

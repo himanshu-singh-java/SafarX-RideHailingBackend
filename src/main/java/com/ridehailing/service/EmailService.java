@@ -1,40 +1,45 @@
 package com.ridehailing.service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class EmailService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    private final JavaMailSender javaMailSender;
+    @Value("${brevo.api.url:https://api.brevo.com/v3/smtp/email}")
+    private String brevoApiUrl;
 
-    @Value("${spring.mail.username}")
+    @Value("${brevo.api.key:}")
+    private String brevoApiKey;
+
+    @Value("${brevo.sender.email:}")
     private String senderEmail;
-
-    public EmailService(JavaMailSender javaMailSender){
-        this.javaMailSender = javaMailSender;
-    }
 
     @Async
     public void sendOtpEmail(String to, String otp, Runnable onFailure){
+
+        if(brevoApiKey == null || brevoApiKey.isBlank() || senderEmail == null || senderEmail.isBlank()){
+            logger.error("Brevo API key or sender email is not configured.");
+            if(onFailure != null){
+                onFailure.run();
+            }
+            return;
+        }
+
         try{
-            MimeMessage message = javaMailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(senderEmail);
-            helper.setTo(to);
-            helper.setSubject("Your SafarX verification code");
-
             String htmlContent = "<div style='font-family: Arial, sans-serif; padding: 20px; color: #333; border: 1px solid #ddd; border-radius: 10px; max-width: 500px;'>"
                     + "<h2 style='color: #000;'>Welcome to SafarX! 🚗</h2>"
                     + "<p>Your email verification code is:</p>"
@@ -43,12 +48,25 @@ public class EmailService {
                     + "<p style='font-size: 12px; color: #777; margin-top: 20px;'>If you didn't request this code, you can safely ignore this email.</p>"
                     + "</div>";
 
-            helper.setText(htmlContent, true);
-            javaMailSender.send(message);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+            headers.set("api-key", brevoApiKey);
+
+            Map<String, Object> body = Map.of(
+                    "sender", Map.of("name", "SafarX", "email", senderEmail),
+                    "to", List.of(Map.of("email", to)),
+                    "subject", "Your SafarX verification code",
+                    "htmlContent", htmlContent
+            );
+
+            HttpEntity<?> request = new HttpEntity<>(body, headers);
+            restTemplate.postForEntity(brevoApiUrl, request, String.class);
+
             logger.info("OTP email successfully sent to: {}", maskEmail(to));
         }
-        catch (MessagingException | MailException m){
-            logger.error("Failed to send OTP email to: {}. Error: {}", maskEmail(to), m.getMessage());
+        catch (Exception e){
+            logger.error("Failed to send OTP email to: {}. Error: {}", maskEmail(to), e.getMessage());
             if(onFailure != null){
                 onFailure.run();
             }
